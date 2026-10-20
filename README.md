@@ -152,19 +152,80 @@ npm run build
 
 ---
 
-## 5. Docker Deployment
+## 5. Docker Deployment (Complete Stack)
 
-To spin up the entire cluster (API server, BullMQ worker, Redis, and MongoDB) with headless LibreOffice:
+DocuSuite is fully containerized and runs the entire stack—Frontend, API Server, Background Worker, MongoDB, and Redis—via a root-level `docker-compose.yml`.
 
+### Prerequisites:
+- **Docker Desktop** (with WSL2 backend on Windows or Docker Engine on Linux/macOS)
+- **Docker Compose v2.x**
+
+### Configuration:
+A template environment file `.env.example` is located at the repository root. Create `.env` if custom ports or secrets are desired:
 ```bash
-cd backend
-docker-compose up --build -d
+cp .env.example .env
 ```
 
-- **API Container:** `docusuite-api` (Port 4000)
-- **Worker Container:** `docusuite-worker`
-- **Redis Queue:** `redis:6379`
-- **Database:** `mongodb:27017`
+### Exact CLI Commands:
+
+#### 1. Startup & Build (from repository root):
+```bash
+docker compose up -d --build
+```
+*Builds the multi-stage Next.js frontend and Express backend containers (packaged with headless LibreOffice, QPDF, and Ghostscript), initializes MongoDB and Redis, and starts all services in the background.*
+
+#### 2. Check Container Health & Status:
+```bash
+docker compose ps
+```
+*Expected status: All 5 containers (`docusuite-frontend`, `docusuite-api`, `docusuite-worker`, `docusuite-mongodb`, `docusuite-redis`) report `running (healthy)`.*
+
+#### 3. View Logs:
+```bash
+# Stream logs for all services
+docker compose logs -f
+
+# Stream logs for a specific service
+docker compose logs -f frontend
+docker compose logs -f api
+docker compose logs -f worker
+docker compose logs -f mongodb
+docker compose logs -f redis
+```
+
+#### 4. Restart Services:
+```bash
+# Restart entire stack
+docker compose restart
+
+# Restart a specific service
+docker compose restart api worker
+```
+
+#### 5. Teardown / Shutdown:
+```bash
+# Stop containers and preserve all persistent data volumes (MongoDB, Redis, Storage)
+docker compose down
+
+# Stop containers and remove persistent volumes (clean slate reset)
+docker compose down -v
+```
+
+### Service Endpoints & Local URLs:
+- **Frontend Studio UI:** [http://localhost:3000](http://localhost:3000)
+- **Backend API Server:** [http://localhost:4000](http://localhost:4000)
+- **Interactive Swagger Documentation:** [http://localhost:4000/api/docs](http://localhost:4000/api/docs)
+- **API Liveness Probe:** [http://localhost:4000/api/health](http://localhost:4000/api/health)
+- **API Readiness Probe:** [http://localhost:4000/api/ready](http://localhost:4000/api/ready)
+- **Engine Capabilities & LibreOffice Check:** [http://localhost:4000/api/tools/convert/capabilities](http://localhost:4000/api/tools/convert/capabilities)
+
+### Container Architecture & Shared Volumes:
+- `docusuite-frontend`: Next.js 16 App Router UI with SSR and Partial Prerendering on port 3000.
+- `docusuite-api`: Express 4.21 REST API with LibreOffice Headless, QPDF, Ghostscript on port 4000.
+- `docusuite-worker`: BullMQ asynchronous job queue processor sharing the identical document processing environment.
+- `docusuite-mongodb`: MongoDB 7 persistent datastore backed by `mongodb_data` volume.
+- `docusuite-redis`: Redis 7 AOF persistent cache & queue broker backed by `redis_data` volume.
+- `storage_data`: Shared Docker volume mounted at `/app/storage` across `api` and `worker` to ensure seamless document handoff.
 
 ---
 

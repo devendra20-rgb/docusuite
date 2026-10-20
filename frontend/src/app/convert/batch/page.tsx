@@ -18,7 +18,7 @@ import {
   Layers,
   ArrowRight
 } from 'lucide-react';
-import { triggerFileDownload, saveSessionHistoryItem } from '@/lib/api-client';
+import { triggerFileDownload, saveSessionHistoryItem, API_BASE_URL } from '@/lib/api-client';
 
 interface UploadedBatchItem {
   id: string;
@@ -134,7 +134,7 @@ export default function BatchConversionPage() {
 
     try {
       setProgress(40);
-      const res = await fetch('http://localhost:4000/api/tools/convert/batch', {
+      const res = await fetch(`${API_BASE_URL}/tools/convert/batch`, {
         method: 'POST',
         body: formData
       });

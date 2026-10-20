@@ -1,0 +1,13 @@
+node_modules
+backend/node_modules
+frontend/node_modules
+backend/dist
+frontend/.next
+frontend/out
+backend/storage/temp/*
+backend/storage/outputs/*
+.git
+.gitignore
+.env
+*.log
+scratch

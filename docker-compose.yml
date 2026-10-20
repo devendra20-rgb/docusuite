@@ -1,0 +1,167 @@
+services:
+  # -------------------------------------------------------------
+  # Frontend: Next.js 16 App Router UI
+  # -------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000/api}
+    image: docusuite-frontend:latest
+    container_name: docusuite-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4000/api}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - docusuite-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # -------------------------------------------------------------
+  # Backend API: Express 4.21 REST API Server
+  # -------------------------------------------------------------
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: docusuite-backend:latest
+    container_name: docusuite-api
+    restart: unless-stopped
+    ports:
+      - "${PORT:-4000}:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - API_PREFIX=/api
+      - MONGODB_URI=mongodb://mongodb:27017/docusuite
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-super-secret-jwt-key-replace-in-production-min-32-chars}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-super-secret-refresh-key-replace-in-production-min-32}
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      - STORAGE_DRIVER=local
+      - STORAGE_LOCAL_ROOT=/app/storage
+      - TEMP_DIR=/app/storage/temp
+      - OUTPUT_DIR=/app/storage/outputs
+      - FILE_RETENTION_HOURS=${FILE_RETENTION_HOURS:-24}
+      - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-900000}
+      - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS:-100}
+      - GUEST_DAILY_JOB_LIMIT=${GUEST_DAILY_JOB_LIMIT:-20}
+      - SOFFICE_PATH=/usr/bin/soffice
+      - QPDF_PATH=/usr/bin/qpdf
+      - GS_PATH=/usr/bin/gs
+    volumes:
+      - storage_data:/app/storage
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - docusuite-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # -------------------------------------------------------------
+  # Background Worker: BullMQ Document & Conversion Worker
+  # -------------------------------------------------------------
+  worker:
+    image: docusuite-backend:latest
+    container_name: docusuite-worker
+    restart: unless-stopped
+    command: ["node", "dist/workers/index.js"]
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongodb:27017/docusuite
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-super-secret-jwt-key-replace-in-production-min-32-chars}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-super-secret-refresh-key-replace-in-production-min-32}
+      - STORAGE_DRIVER=local
+      - STORAGE_LOCAL_ROOT=/app/storage
+      - TEMP_DIR=/app/storage/temp
+      - OUTPUT_DIR=/app/storage/outputs
+      - FILE_RETENTION_HOURS=${FILE_RETENTION_HOURS:-24}
+      - SOFFICE_PATH=/usr/bin/soffice
+      - QPDF_PATH=/usr/bin/qpdf
+      - GS_PATH=/usr/bin/gs
+    volumes:
+      - storage_data:/app/storage
+    depends_on:
+      api:
+        condition: service_started
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - docusuite-net
+    healthcheck:
+      test: ["CMD-SHELL", "node -e 'process.exit(0)'"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # -------------------------------------------------------------
+  # Database: MongoDB 7
+  # -------------------------------------------------------------
+  mongodb:
+    image: mongo:7-jammy
+    container_name: docusuite-mongodb
+    restart: unless-stopped
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - docusuite-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # -------------------------------------------------------------
+  # Cache & Queue Broker: Redis 7
+  # -------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: docusuite-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - docusuite-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  mongodb_data:
+  redis_data:
+  storage_data:
+
+networks:
+  docusuite-net:
+    driver: bridge

@@ -1,0 +1,68 @@
+{
+  "containers": [
+    {
+      "service": "api",
+      "name": "docusuite-api",
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "service": "frontend",
+      "name": "docusuite-frontend",
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "service": "mongodb",
+      "name": "docusuite-mongodb",
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "service": "redis",
+      "name": "docusuite-redis",
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "service": "worker",
+      "name": "docusuite-worker",
+      "state": "running",
+      "health": "healthy"
+    }
+  ],
+  "health": {
+    "status": "ok",
+    "service": "docusuite-backend",
+    "timestamp": "2026-10-20T17:49:56.322Z",
+    "uptimeSeconds": 391.095231127,
+    "memoryUsageMb": 113
+  },
+  "ready": {
+    "status": "ready",
+    "dependencies": {
+      "database": "connected",
+      "redis": "disconnected",
+      "storage": "writable",
+      "libreOffice": "available"
+    }
+  },
+  "libreOfficeAvailable": true,
+  "workerActive": true,
+  "frontend": {
+    "status": 200,
+    "hasBrand": true
+  },
+  "docxToPdf": {
+    "status": "PASS",
+    "bytes": 11046
+  },
+  "pdfToDocx": {
+    "status": "PASS",
+    "bytes": 5038
+  },
+  "batchConversion": {
+    "status": "PASS",
+    "count": 2
+  }
+}
