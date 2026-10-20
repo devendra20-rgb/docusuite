@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DocuSuite — Precision Document Studio (Design Reference)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#E11D48',
+            'primary-hover': '#BE123C',
+            ink: '#0F172A',
+            'ink-muted': '#64748B'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            heading: ['Plus Jakarta Sans', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #ffffff; color: #0f172a; }
+    h1, h2, h3, h4 { font-family: 'Plus Jakarta Sans', sans-serif; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-white text-slate-900">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center text-white shadow-sm font-bold text-lg">
+          DS
+        </div>
+        <div>
+          <span class="font-heading font-bold text-xl text-slate-900 tracking-tight">DocuSuite</span>
+          <span class="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 ml-1.5 rounded bg-rose-50 text-rose-600 border border-rose-100">Studio</span>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center space-x-6 text-sm font-medium text-slate-600">
+        <a href="#tools" class="hover:text-slate-900">PDF Tools</a>
+        <a href="#convert" class="hover:text-slate-900">File Conversion</a>
+        <a href="#status" class="hover:text-slate-900">System Status</a>
+        <a href="#api" class="hover:text-slate-900">API Docs</a>
+      </nav>
+      <div class="flex items-center space-x-3">
+        <button class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 shadow-sm">
+          Explore 27+ Tools
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="py-16 md:py-24 bg-gradient-to-b from-slate-50/70 via-white to-white text-center relative">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="inline-flex items-center px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold uppercase tracking-wider mb-6">
+        Precision Document Studio • 27+ Tools
+      </div>
+      <h1 class="font-heading font-extrabold text-4xl sm:text-6xl text-slate-900 tracking-tight leading-[1.12]">
+        Surgical precision for your <span class="text-transparent bg-clip-text bg-gradient-to-r from-rose-600 to-rose-800">documents.</span>
+      </h1>
+      <p class="mt-4 text-base sm:text-lg text-slate-600 max-w-2xl mx-auto">
+        Merge, convert, compress, protect, and reorganize PDFs and office files instantly. Lossless fidelity, 100% private, and zero data retention.
+      </p>
+
+      <!-- Search Input -->
+      <div class="mt-8 max-w-2xl mx-auto">
+        <div class="relative flex items-center bg-white rounded-2xl border border-slate-300 shadow-md p-2 hover:border-slate-400">
+          <input type="text" placeholder="What do you want to do with your file? (e.g. merge, compress, protect...)" class="w-full py-2.5 px-3 text-sm text-slate-900 bg-transparent focus:outline-none">
+        </div>
+      </div>
+
+      <!-- Quick Chips -->
+      <div class="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs font-medium">
+        <span class="text-slate-400">Popular:</span>
+        <span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 shadow-xs">Merge PDF</span>
+        <span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 shadow-xs">Compress PDF</span>
+        <span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 shadow-xs">PDF to Word</span>
+        <span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 shadow-xs">JPG to PDF</span>
+        <span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 shadow-xs">Protect PDF</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Popular Tools Grid Preview -->
+  <section class="py-16 bg-white border-t border-slate-100">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="font-heading font-bold text-3xl text-slate-900 mb-8">Popular Document Modules</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="p-6 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 shadow-xs hover:shadow-lg transition-all">
+          <span class="text-xs font-bold uppercase text-rose-600 bg-rose-50 px-2 py-0.5 rounded">PDF</span>
+          <h3 class="font-heading font-bold text-lg text-slate-900 mt-3">Merge PDF</h3>
+          <p class="text-xs text-slate-500 mt-1">Combine multiple PDFs in custom sequence.</p>
+        </div>
+        <div class="p-6 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 shadow-xs hover:shadow-lg transition-all">
+          <span class="text-xs font-bold uppercase text-rose-600 bg-rose-50 px-2 py-0.5 rounded">Optimize</span>
+          <h3 class="font-heading font-bold text-lg text-slate-900 mt-3">Compress PDF</h3>
+          <p class="text-xs text-slate-500 mt-1">Losslessly reduce document size for emailing.</p>
+        </div>
+        <div class="p-6 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 shadow-xs hover:shadow-lg transition-all">
+          <span class="text-xs font-bold uppercase text-blue-600 bg-blue-50 px-2 py-0.5 rounded">Convert</span>
+          <h3 class="font-heading font-bold text-lg text-slate-900 mt-3">PDF to Word</h3>
+          <p class="text-xs text-slate-500 mt-1">Extract editable DOCX layouts from PDF.</p>
+        </div>
+        <div class="p-6 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 shadow-xs hover:shadow-lg transition-all">
+          <span class="text-xs font-bold uppercase text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">Security</span>
+          <h3 class="font-heading font-bold text-lg text-slate-900 mt-3">Protect PDF</h3>
+          <p class="text-xs text-slate-500 mt-1">Encrypt documents with user and owner passwords.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="mt-auto bg-slate-900 text-slate-300 py-8 text-center text-xs">
+    <p>© 2026 DocuSuite. Precision Document Studio. Zero-retention ephemeral processing.</p>
+  </footer>
+</body>
+</html>

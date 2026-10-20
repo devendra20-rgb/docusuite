@@ -1,0 +1,178 @@
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+
+const inputDir = path.join(__dirname, 'docker_inputs').replace(/\\/g, '/');
+const outputDir = path.join(__dirname, 'docker_outputs').replace(/\\/g, '/');
+
+if (!fs.existsSync(outputDir)) {
+  fs.mkdirSync(outputDir, { recursive: true });
+}
+
+// Conversions to verify inside Docker
+const conversions = [
+  {
+    tool: 'word-to-pdf',
+    input: 'sample.docx',
+    convertArg: 'pdf',
+    expectedExt: '.pdf',
+    check: (buf) => buf.slice(0, 5).toString() === '%PDF-'
+  },
+  {
+    tool: 'pdf-to-word',
+    input: 'sample.pdf',
+    convertArg: 'docx:"MS Word 2007 XML"',
+    extra: '--infilter="writer_pdf_import"',
+    expectedExt: '.docx',
+    check: (buf) => buf.slice(0, 2).toString() === 'PK'
+  },
+  {
+    tool: 'excel-to-pdf',
+    input: 'sample.xlsx',
+    convertArg: 'pdf',
+    expectedExt: '.pdf',
+    check: (buf) => buf.slice(0, 5).toString() === '%PDF-'
+  },
+  {
+    tool: 'pdf-to-excel',
+    input: 'sample.pdf',
+    convertArg: 'xlsx',
+    expectedExt: '.xlsx',
+    check: (buf) => buf.slice(0, 2).toString() === 'PK'
+  },
+  {
+    tool: 'powerpoint-to-pdf',
+    input: 'sample.pptx',
+    convertArg: 'pdf',
+    expectedExt: '.pdf',
+    check: (buf) => buf.slice(0, 5).toString() === '%PDF-'
+  },
+  {
+    tool: 'pdf-to-powerpoint',
+    input: 'sample.pdf',
+    convertArg: 'pptx:"Impress MS PowerPoint 2007 XML"',
+    expectedExt: '.pptx',
+    check: (buf) => buf.slice(0, 2).toString() === 'PK'
+  },
+  {
+    tool: 'html-to-pdf',
+    input: 'sample.html',
+    convertArg: 'pdf',
+    expectedExt: '.pdf',
+    check: (buf) => buf.slice(0, 5).toString() === '%PDF-'
+  },
+  {
+    tool: 'rtf-to-pdf',
+    input: 'sample.rtf',
+    convertArg: 'pdf',
+    expectedExt: '.pdf',
+    check: (buf) => buf.slice(0, 5).toString() === '%PDF-'
+  },
+  {
+    tool: 'pdf-to-html',
+    input: 'sample.pdf',
+    convertArg: 'html:"HTML (StarWriter)"',
+    extra: '--infilter="writer_pdf_import"',
+    expectedExt: '.html',
+    check: (buf) => buf.toString().toLowerCase().includes('<html')
+  },
+  {
+    tool: 'odt-to-pdf',
+    input: 'sample.odt',
+    convertArg: 'pdf',
+    expectedExt: '.pdf',
+    check: (buf) => buf.slice(0, 5).toString() === '%PDF-'
+  },
+  {
+    tool: 'ods-to-pdf',
+    input: 'sample.ods',
+    convertArg: 'pdf',
+    expectedExt: '.pdf',
+    check: (buf) => buf.slice(0, 5).toString() === '%PDF-'
+  },
+  {
+    tool: 'odp-to-pdf',
+    input: 'sample.odp',
+    convertArg: 'pdf',
+    expectedExt: '.pdf',
+    check: (buf) => buf.slice(0, 5).toString() === '%PDF-'
+  }
+];
+
+async function run() {
+  console.log('=== VERIFYING LIBREOFFICE CONVERSIONS INSIDE DOCKER CONTAINER ===\n');
+
+  const results = [];
+
+  for (const conv of conversions) {
+    const subOut = path.join(outputDir, conv.tool).replace(/\\/g, '/');
+    if (!fs.existsSync(subOut)) {
+      fs.mkdirSync(subOut, { recursive: true });
+    }
+
+    const extraFlag = conv.extra ? `${conv.extra} ` : '';
+    const command = `docker run --rm -v "${inputDir}:/inputs" -v "${subOut}:/outputs" docusuite-backend soffice --headless ${extraFlag}--convert-to ${conv.convertArg} /inputs/${conv.input} --outdir /outputs`;
+    console.log(`Running [${conv.tool}] (${conv.input} -> ${conv.expectedExt})...`);
+
+    try {
+      const stdout = execSync(command, { stdio: 'pipe', timeout: 60000 }).toString();
+
+      // Check output file
+      const baseName = path.basename(conv.input, path.extname(conv.input));
+      const expectedOutputFile = path.join(subOut, `${baseName}${conv.expectedExt}`);
+
+      if (fs.existsSync(expectedOutputFile)) {
+        const buf = fs.readFileSync(expectedOutputFile);
+        const isValid = conv.check(buf);
+
+        if (isValid && buf.length > 0) {
+          console.log(`  ✓ PASSED: ${conv.tool} produced valid ${conv.expectedExt} (${buf.length} bytes)`);
+          results.push({
+            tool: conv.tool,
+            input: conv.input,
+            outputExt: conv.expectedExt,
+            status: 'PASS',
+            bytes: buf.length,
+            validSignature: true,
+            filePath: expectedOutputFile,
+            stdout: stdout.trim()
+          });
+        } else {
+          console.log(`  ✗ FAIL: Output signature check failed (${buf.length} bytes)`);
+          results.push({
+            tool: conv.tool,
+            input: conv.input,
+            outputExt: conv.expectedExt,
+            status: 'FAIL',
+            error: 'Output failed binary signature validation',
+            bytes: buf.length
+          });
+        }
+      } else {
+        console.log(`  ✗ FAIL: Expected output file not found at ${expectedOutputFile}`);
+        results.push({
+          tool: conv.tool,
+          input: conv.input,
+          outputExt: conv.expectedExt,
+          status: 'FAIL',
+          error: 'Expected output file was not generated by LibreOffice engine (filter unavailable or unsupported)'
+        });
+      }
+    } catch (err) {
+      console.log(`  ✗ ERROR/FAIL: ${err.message}`);
+      results.push({
+        tool: conv.tool,
+        input: conv.input,
+        outputExt: conv.expectedExt,
+        status: 'FAIL',
+        error: err.message
+      });
+    }
+  }
+
+  const resultsPath = path.join(__dirname, 'docker_libreoffice_audit.json');
+  fs.writeFileSync(resultsPath, JSON.stringify(results, null, 2));
+  console.log(`\nAudit results written to ${resultsPath}`);
+}
+
+run().catch(console.error);

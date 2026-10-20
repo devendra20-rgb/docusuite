@@ -1,0 +1,102 @@
+{
+  "merge-pdf": {
+    "status": "PASS",
+    "size": 1105,
+    "endpoint": "/tools/pdf/merge"
+  },
+  "split-pdf": {
+    "status": "PASS",
+    "size": 1124,
+    "endpoint": "/tools/pdf/split"
+  },
+  "compress-pdf": {
+    "status": "PASS",
+    "size": 1603,
+    "endpoint": "/tools/pdf/compress"
+  },
+  "rotate-pdf": {
+    "status": "PASS",
+    "size": 1604,
+    "endpoint": "/tools/pdf/rotate"
+  },
+  "reorder-pdf": {
+    "status": "PASS",
+    "size": 1593,
+    "endpoint": "/tools/pdf/reorder"
+  },
+  "extract-pdf": {
+    "status": "PASS",
+    "size": 1125,
+    "endpoint": "/tools/pdf/extract"
+  },
+  "delete-pdf-pages": {
+    "status": "PASS",
+    "size": 1125,
+    "endpoint": "/tools/pdf/delete"
+  },
+  "organize-pdf": {
+    "status": "PASS",
+    "size": 1372,
+    "endpoint": "/tools/pdf/organize"
+  },
+  "crop-pdf": {
+    "status": "PASS",
+    "size": 1609,
+    "endpoint": "/tools/pdf/crop"
+  },
+  "add-page-numbers": {
+    "status": "PASS",
+    "size": 2557,
+    "endpoint": "/tools/pdf/add-page-numbers"
+  },
+  "add-watermark": {
+    "status": "PASS",
+    "size": 2801,
+    "endpoint": "/tools/pdf/add-watermark"
+  },
+  "protect-pdf": {
+    "status": "PASS",
+    "size": 3315,
+    "endpoint": "/tools/pdf/protect"
+  },
+  "unlock-pdf": {
+    "status": "PASS",
+    "size": 1676,
+    "endpoint": "/tools/pdf/unlock"
+  },
+  "images-to-pdf": {
+    "status": "PASS",
+    "size": 1311,
+    "endpoint": "/tools/images/to-pdf"
+  },
+  "to-images": {
+    "status": "PASS",
+    "size": 7224,
+    "endpoint": "/tools/pdf/to-images"
+  },
+  "csv-to-excel": {
+    "status": "PASS",
+    "size": 6571,
+    "endpoint": "/tools/convert/csv-to-excel"
+  },
+  "excel-to-csv": {
+    "status": "PASS",
+    "size": 82,
+    "endpoint": "/tools/convert/excel-to-csv"
+  },
+  "word-to-html": {
+    "status": "PASS",
+    "size": 562,
+    "endpoint": "/tools/convert/word-to-html"
+  },
+  "txt-to-pdf": {
+    "status": "PASS",
+    "size": 983,
+    "endpoint": "/tools/convert/txt-to-pdf"
+  },
+  "batch-conversion": {
+    "status": "PASS",
+    "batchCount": 2,
+    "endpoint": "/tools/convert/batch"
+  }
+}

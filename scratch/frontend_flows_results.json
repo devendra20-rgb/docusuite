@@ -1,0 +1,52 @@
+{
+  "merge-pdf": {
+    "pass": true,
+    "status": 200,
+    "size": 1751
+  },
+  "split-pdf-range": {
+    "pass": true,
+    "status": 200,
+    "size": 1095
+  },
+  "compress-pdf": {
+    "pass": true,
+    "status": 200,
+    "size": 1330
+  },
+  "rotate-pdf": {
+    "pass": true,
+    "status": 200,
+    "size": 1327
+  },
+  "add-page-numbers": {
+    "pass": true,
+    "status": 200,
+    "size": 2092
+  },
+  "add-watermark": {
+    "pass": true,
+    "status": 200,
+    "size": 2262
+  },
+  "protect-pdf": {
+    "pass": true,
+    "status": 200,
+    "size": 2711
+  },
+  "unlock-pdf": {
+    "pass": true,
+    "status": 200,
+    "size": 1404
+  },
+  "csv-to-excel": {
+    "pass": true,
+    "status": 200,
+    "size": 6551
+  },
+  "txt-to-pdf": {
+    "pass": true,
+    "status": 200,
+    "size": 1038
+  }
+}
