@@ -34,9 +34,9 @@
   "health": {
     "status": "ok",
     "service": "docusuite-backend",
-    "timestamp": "2026-10-20T17:49:56.322Z",
-    "uptimeSeconds": 391.095231127,
-    "memoryUsageMb": 113
+    "timestamp": "2026-10-20T18:28:22.329Z",
+    "uptimeSeconds": 134.92332987,
+    "memoryUsageMb": 154
   },
   "ready": {
     "status": "ready",

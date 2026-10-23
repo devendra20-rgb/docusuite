@@ -25,7 +25,9 @@ export const createApp = (): Express => {
   app.use(
     helmet({
       contentSecurityPolicy: false, // Allows Swagger UI to render smoothly
-      crossOriginEmbedderPolicy: false
+      crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      frameguard: false
     })
   );
 

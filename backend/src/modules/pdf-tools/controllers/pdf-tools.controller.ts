@@ -83,7 +83,15 @@ export class PdfToolsController {
       if (!req.storedFiles || req.storedFiles.length < 2) {
         throw new ValidationError('Merging requires at least 2 PDF documents');
       }
-      const result = await this.dispatchOrProcess(req, 'pdf-merge', 'merge');
+      let fileOperations = req.body.fileOperations || req.body.operations;
+      if (typeof fileOperations === 'string') {
+        try {
+          fileOperations = JSON.parse(fileOperations);
+        } catch {
+          // ignore parsing error
+        }
+      }
+      const result = await this.dispatchOrProcess(req, 'pdf-merge', 'merge', { fileOperations });
       res.status(200).json(result);
     } catch (err) {
       next(err);

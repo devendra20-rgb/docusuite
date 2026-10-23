@@ -52,3 +52,7 @@ desktop.ini
 *.njsproj
 *.sln
 *.sw?
+
+# Scratch & Temporary Test Artifacts
+scratch/
+

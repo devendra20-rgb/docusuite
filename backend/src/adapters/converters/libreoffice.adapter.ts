@@ -84,6 +84,10 @@ export class LibreOfficeAdapter implements IConversionEngine {
     const supportedOfficeFrom = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf', 'html', 'pdf'];
     const supportedOfficeTo = ['pdf', 'docx', 'xlsx', 'pptx', 'odt', 'ods', 'odp', 'html', 'txt'];
 
+    if (from === 'pdf' && to === 'xlsx') {
+      return false;
+    }
+
     if (supportedOfficeFrom.includes(from) && supportedOfficeTo.includes(to)) {
       return from !== to;
     }

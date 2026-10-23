@@ -60,12 +60,20 @@ export class JobsController {
         throw new NotFoundError('Output file has expired or was removed from storage');
       }
 
+      const isInline = req.query.inline === 'true' || req.query.preview === 'true';
+      const dispositionType = isInline ? 'inline' : 'attachment';
+
       res.setHeader('Content-Type', targetFile.mimeType || 'application/octet-stream');
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="${encodeURIComponent(targetFile.originalName)}"`
+        `${dispositionType}; filename="${encodeURIComponent(targetFile.originalName)}"`
       );
       res.setHeader('Content-Length', targetFile.size);
+
+      if (isInline) {
+        res.removeHeader('X-Frame-Options');
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      }
 
       const fileStream = storageService.getFileStream(targetFile.path);
       fileStream.pipe(res);

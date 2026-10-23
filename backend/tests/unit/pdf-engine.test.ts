@@ -36,6 +36,28 @@ describe('PdfEngineAdapter (Phase 1 PDF Tools)', () => {
       expect(doc.getPageCount()).toBe(5);
     });
 
+    it('should omit excluded pages and respect rotations and reordering when fileOperations is provided', async () => {
+      // 3-page PDF: exclude page 2, keep page 1 and 3 (with page 3 rotated 90 degrees)
+      // 2-page PDF: keep both pages
+      // Expected total: 2 + 2 = 4 pages
+      const fileOps = [
+        [
+          { pageNumber: 1, rotation: 0, deleted: false },
+          { pageNumber: 2, rotation: 0, deleted: true },
+          { pageNumber: 3, rotation: 90 as const, deleted: false }
+        ],
+        [
+          { pageNumber: 1, rotation: 0, deleted: false },
+          { pageNumber: 2, rotation: 0, deleted: false }
+        ]
+      ];
+
+      const merged = await pdfEngine.merge([samplePdf3Pages, samplePdf2Pages], fileOps);
+      const doc = await PDFDocument.load(merged);
+      expect(doc.getPageCount()).toBe(4);
+      expect(doc.getPage(1).getRotation().angle).toBe(90);
+    });
+
     it('should throw ValidationError if less than 2 PDF documents are provided', async () => {
       await expect(pdfEngine.merge([samplePdf3Pages])).rejects.toThrow(ValidationError);
       await expect(pdfEngine.merge([])).rejects.toThrow(ValidationError);

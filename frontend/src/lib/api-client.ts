@@ -231,7 +231,13 @@ export async function triggerFileDownload(downloadUrl: string, suggestedFilename
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    window.URL.revokeObjectURL(blobUrl);
+    setTimeout(() => {
+      try {
+        window.URL.revokeObjectURL(blobUrl);
+      } catch {
+        // ignore
+      }
+    }, 1500);
   } catch {
     // Fallback: direct window location
     window.open(fullUrl, '_blank');

@@ -2,9 +2,15 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Layers, ShieldCheck, Lock, Cpu, FileCheck } from 'lucide-react';
 
 export const Footer: React.FC = () => {
+  const pathname = usePathname();
+  if (pathname === '/tools/pdf/merge') {
+    return null;
+  }
+
   return (
     <footer className="bg-slate-900 text-slate-300 border-t border-slate-800">
       {/* Privacy Guarantee Banner */}

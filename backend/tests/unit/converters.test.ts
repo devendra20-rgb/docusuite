@@ -96,6 +96,74 @@ describe('Document Converters (Phase 2)', () => {
       expect(html).toContain('DocuSuite Synthetic DOCX Heading');
     });
 
+    it('should convert PDF containing a table to Excel (.xlsx)', async () => {
+      const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+      const pdfDoc = await PDFDocument.create();
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+      const page = pdfDoc.addPage([600, 400]);
+
+      page.drawText('Sample Product Table', { x: 50, y: 350, size: 14, font: fontBold });
+
+      const headers = ['ID', 'Product', 'Qty', 'Price'];
+      const colX = [50, 120, 250, 350];
+      let y = 310;
+
+      for (let i = 0; i < headers.length; i++) {
+        page.drawText(headers[i], { x: colX[i], y, size: 10, font: fontBold });
+      }
+
+      const rows = [
+        ['P1', 'Keyboard', '10', '$49.99'],
+        ['P2', 'Mouse', '25', '$19.99'],
+        ['P3', 'Monitor', '5', '$199.99']
+      ];
+
+      for (const row of rows) {
+        y -= 25;
+        for (let i = 0; i < row.length; i++) {
+          page.drawText(row[i], { x: colX[i], y, size: 9, font });
+        }
+      }
+
+      const inPath = path.join(tmpDir, 'table.pdf');
+      const outPath = path.join(tmpDir, 'table.xlsx');
+      await fs.writeFile(inPath, await pdfDoc.save());
+
+      const result = await nativeNodeAdapter.convert(inPath, outPath, 'pdf', 'xlsx');
+      expect(result.outputExtension).toBe('.xlsx');
+      expect(result.engineUsed).toBe('NativeNodeEngine');
+      expect(result.fileSize).toBeGreaterThan(0);
+
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.readFile(outPath);
+      expect(wb.worksheets.length).toBeGreaterThanOrEqual(1);
+      const sheet = wb.worksheets[0];
+      expect(sheet.rowCount).toBe(4); // 1 header + 3 data rows
+    });
+
+    it('should throw user-friendly ValidationError when PDF has no extractable tables', async () => {
+      const { PDFDocument, StandardFonts } = await import('pdf-lib');
+      const pdfDoc = await PDFDocument.create();
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const page = pdfDoc.addPage([600, 400]);
+      page.drawText('This document has no tables at all, just a normal single line.', {
+        x: 50,
+        y: 350,
+        size: 12,
+        font
+      });
+
+      const inPath = path.join(tmpDir, 'no_table.pdf');
+      const outPath = path.join(tmpDir, 'no_table.xlsx');
+      await fs.writeFile(inPath, await pdfDoc.save());
+
+      await expect(
+        nativeNodeAdapter.convert(inPath, outPath, 'pdf', 'xlsx')
+      ).rejects.toThrow('No extractable tables found');
+    });
+
     it('should report conversion limitations correctly', () => {
       const limits = nativeNodeAdapter.getLimitations('csv', 'xlsx');
       expect(limits.length).toBeGreaterThan(0);
@@ -125,6 +193,7 @@ describe('Document Converters (Phase 2)', () => {
       expect(nativeCap?.supportedConversions).toContain('xlsx->csv');
       expect(nativeCap?.supportedConversions).toContain('txt->pdf');
       expect(nativeCap?.supportedConversions).toContain('docx->html');
+      expect(nativeCap?.supportedConversions).toContain('pdf->xlsx');
     });
 
     it('should route native conversion seamlessly through conversionRouter', async () => {

@@ -32,7 +32,8 @@ export const processDocumentJob = async (job: Job<DocumentJobData>): Promise<voi
         inputFiles.map(f => storageService.getFileBuffer(f.path))
       );
       await job.updateProgress(40);
-      const mergedBuffer = await pdfEngine.merge(buffers);
+      const fileOperations = parameters.fileOperations as any[] | undefined;
+      const mergedBuffer = await pdfEngine.merge(buffers, fileOperations);
       await job.updateProgress(80);
 
       const saved = await storageService.saveOutputFile('merged.pdf', mergedBuffer, 'application/pdf');

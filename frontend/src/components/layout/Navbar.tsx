@@ -21,6 +21,8 @@ export const Navbar: React.FC = () => {
   const [isHealthy, setIsHealthy] = useState<boolean | null>(null);
 
   useEffect(() => {
+    if (pathname === '/tools/pdf/merge') return;
+
     // Sync history count with current session
     setHistoryCount(getSessionHistory().length);
     const updateCount = () => setHistoryCount(getSessionHistory().length);
@@ -30,7 +32,11 @@ export const Navbar: React.FC = () => {
     checkBackendHealth().then((res) => setIsHealthy(res.healthy));
 
     return () => window.removeEventListener('docusuite-history-updated', updateCount);
-  }, []);
+  }, [pathname]);
+
+  if (pathname === '/tools/pdf/merge') {
+    return null;
+  }
 
   const navLinks = [
     { label: 'PDF Tools', href: '/tools' },

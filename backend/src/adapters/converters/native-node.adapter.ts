@@ -8,6 +8,7 @@ import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { IConversionEngine, ConversionResult } from './conversion.interface.js';
 import { AppError, ConversionError } from '../../utils/errors.js';
 import { createChildLogger } from '../../utils/logger.js';
+import { pdfTableExtractor } from './pdf-table-extractor.service.js';
 
 const logger = createChildLogger('NativeNodeAdapter');
 
@@ -26,7 +27,8 @@ export class NativeNodeAdapter implements IConversionEngine {
       csv: ['xlsx'],
       xlsx: ['csv'],
       txt: ['pdf'],
-      docx: ['html']
+      docx: ['html'],
+      pdf: ['xlsx']
     };
 
     return pairs[from]?.includes(to) || false;
@@ -36,6 +38,12 @@ export class NativeNodeAdapter implements IConversionEngine {
     const from = fromExt.toLowerCase().replace('.', '');
     const to = toExt.toLowerCase().replace('.', '');
 
+    if (from === 'pdf' && to === 'xlsx') {
+      return [
+        'Extracts structured tabular data grids and outputs a formatted spreadsheet with styled headers and alternating rows.',
+        'Document must contain recognizable tabular rows and columns; non-tabular freeform paragraphs are skipped.'
+      ];
+    }
     if (from === 'csv' && to === 'xlsx') {
       return [
         'Plain text formatting only; CSV does not preserve original cell colors, fonts or formulas.',
@@ -83,6 +91,8 @@ export class NativeNodeAdapter implements IConversionEngine {
         await this.convertDocxToHtml(inputPath, outputPath);
       } else if (from === 'txt' && to === 'pdf') {
         await this.convertTxtToPdf(inputPath, outputPath);
+      } else if (from === 'pdf' && to === 'xlsx') {
+        await pdfTableExtractor.extractToExcel(inputPath, outputPath);
       } else {
         throw new AppError(`Unsupported native conversion from ${from} to ${to}`, 400);
       }
@@ -100,6 +110,9 @@ export class NativeNodeAdapter implements IConversionEngine {
         limitations: this.getLimitations(from, to)
       };
     } catch (err) {
+      if (err instanceof AppError) {
+        throw err;
+      }
       logger.error('Native conversion error', { from, to, inputPath, err });
       throw new ConversionError(
         `Conversion from .${from} to .${to} failed: ${err instanceof Error ? err.message : String(err)}`

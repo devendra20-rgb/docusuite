@@ -99,7 +99,7 @@ export class PdfEngineAdapter {
   /**
    * 1. Merge multiple PDFs into a single document
    */
-  public async merge(pdfBuffers: Buffer[]): Promise<Buffer> {
+  public async merge(pdfBuffers: Buffer[], fileOperations?: OrganizePageOption[][]): Promise<Buffer> {
     if (!pdfBuffers || pdfBuffers.length < 2) {
       throw new ValidationError('At least 2 PDF documents are required to merge');
     }
@@ -108,11 +108,33 @@ export class PdfEngineAdapter {
 
     for (let i = 0; i < pdfBuffers.length; i++) {
       const srcDoc = await this.loadPdf(pdfBuffers[i]);
-      const pageIndices = srcDoc.getPageIndices();
-      const copiedPages = await mergedDoc.copyPages(srcDoc, pageIndices);
-      for (const page of copiedPages) {
-        mergedDoc.addPage(page);
+      const ops = fileOperations && fileOperations[i];
+
+      if (ops && Array.isArray(ops) && ops.length > 0) {
+        const total = srcDoc.getPageCount();
+        for (const op of ops) {
+          if (op.deleted) continue;
+          if (op.pageNumber < 1 || op.pageNumber > total) {
+            continue;
+          }
+          const [copiedPage] = await mergedDoc.copyPages(srcDoc, [op.pageNumber - 1]);
+          if (op.rotation) {
+            const cur = copiedPage.getRotation().angle;
+            copiedPage.setRotation(degrees((cur + op.rotation) % 360));
+          }
+          mergedDoc.addPage(copiedPage);
+        }
+      } else {
+        const pageIndices = srcDoc.getPageIndices();
+        const copiedPages = await mergedDoc.copyPages(srcDoc, pageIndices);
+        for (const page of copiedPages) {
+          mergedDoc.addPage(page);
+        }
       }
+    }
+
+    if (mergedDoc.getPageCount() === 0) {
+      throw new ValidationError('Cannot merge documents: all pages were excluded');
     }
 
     const output = await mergedDoc.save();
