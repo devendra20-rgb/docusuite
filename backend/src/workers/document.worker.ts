@@ -124,13 +124,20 @@ export const processDocumentJob = async (job: Job<DocumentJobData>): Promise<voi
       }
     } else if (operation === 'pdf-compress') {
       const buffer = await storageService.getFileBuffer(inputFiles[0].path);
-      await job.updateProgress(40);
-      const compressed = await pdfEngine.compress(buffer);
+      await job.updateProgress(25);
+
+      const targetSizeBytes = parameters?.targetSizeBytes ? Number(parameters.targetSizeBytes) : undefined;
+      const preset = (parameters?.preset || parameters?.compressionLevel || 'recommended') as 'extreme' | 'recommended' | 'less';
+
+      const stats = await pdfEngine.compressWithStats(buffer, {
+        targetSizeBytes,
+        preset
+      });
       await job.updateProgress(80);
 
       const saved = await storageService.saveOutputFile(
         `compressed-${inputFiles[0].originalName}`,
-        compressed,
+        stats.buffer,
         'application/pdf'
       );
       outputFiles.push({
@@ -140,7 +147,16 @@ export const processDocumentJob = async (job: Job<DocumentJobData>): Promise<voi
         mimeType: 'application/pdf',
         size: saved.size,
         path: saved.storedPath,
-        downloadUrl: `/api/jobs/${jobId}/download`
+        downloadUrl: `/api/jobs/${jobId}/download`,
+        metadata: {
+          originalSize: stats.originalSize,
+          finalSize: stats.finalSize,
+          savedBytes: stats.savedBytes,
+          reductionPercentage: stats.reductionPercentage,
+          targetAchieved: stats.targetAchieved,
+          targetSizeBytes: targetSizeBytes || null,
+          preset: stats.presetUsed
+        }
       });
     } else if (operation === 'pdf-rotate') {
       const buffer = await storageService.getFileBuffer(inputFiles[0].path);

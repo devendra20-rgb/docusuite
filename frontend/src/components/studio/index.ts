@@ -9,3 +9,4 @@ export * from './OutputPreview';
 export * from './StudioWorkspace';
 export * from './MergeWorkspace';
 export * from './SplitWorkspace';
+export * from './CompressWorkspace';

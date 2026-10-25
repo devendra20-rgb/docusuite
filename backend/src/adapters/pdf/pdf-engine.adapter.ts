@@ -1,5 +1,8 @@
 import {
   PDFDocument,
+  PDFName,
+  PDFNumber,
+  PDFRawStream,
   degrees,
   rgb,
   StandardFonts
@@ -53,6 +56,22 @@ export interface CropOptions {
   left?: number;
   right?: number;
   pages?: number[]; // 1-indexed, empty means all
+}
+
+export interface CompressOptions {
+  targetSizeBytes?: number;
+  preset?: 'extreme' | 'recommended' | 'less';
+  quality?: number;
+}
+
+export interface CompressResult {
+  buffer: Buffer;
+  originalSize: number;
+  finalSize: number;
+  savedBytes: number;
+  reductionPercentage: number;
+  targetAchieved?: boolean;
+  presetUsed: string;
 }
 
 export class PdfEngineAdapter {
@@ -211,11 +230,56 @@ export class PdfEngineAdapter {
 
   /**
    * 3. Compress PDF
-   * Strips unused objects, metadata, compacts xref tables and streams
+   * Genuine optimization: Strips metadata, recompresses embedded raster images via Sharp,
+   * downsamples high-DPI graphics according to presets or target sizes, and packs xref streams.
    */
-  public async compress(pdfBuffer: Buffer): Promise<Buffer> {
+  public async compress(pdfBuffer: Buffer, options: CompressOptions = {}): Promise<Buffer> {
+    const result = await this.compressWithStats(pdfBuffer, options);
+    return result.buffer;
+  }
+
+  /**
+   * Compresses PDF and calculates exact byte metrics and target attainment
+   */
+  public async compressWithStats(pdfBuffer: Buffer, options: CompressOptions = {}): Promise<CompressResult> {
+    const originalSize = pdfBuffer.length;
+    const targetSizeBytes = options.targetSizeBytes && options.targetSizeBytes > 0
+      ? Number(options.targetSizeBytes)
+      : undefined;
+    const preset = options.preset || 'recommended';
+
+    let quality = options.quality || 65;
+    let maxDimension = 1600;
+
+    // Dynamically calculate quality and resolution target if targetSizeBytes was specified
+    if (targetSizeBytes) {
+      const targetRatio = targetSizeBytes / originalSize;
+      if (targetRatio < 0.45) {
+        quality = 40;
+        maxDimension = 1000;
+      } else if (targetRatio < 0.75) {
+        quality = 65;
+        maxDimension = 1600;
+      } else {
+        quality = 80;
+        maxDimension = 2200;
+      }
+    } else {
+      if (preset === 'extreme') {
+        quality = 45;
+        maxDimension = 1000;
+      } else if (preset === 'less') {
+        quality = 80;
+        maxDimension = 2200;
+      } else {
+        quality = 65;
+        maxDimension = 1600;
+      }
+    }
+
     const srcDoc = await this.loadPdf(pdfBuffer);
-    // Remove heavy metadata, optimize object streams
+
+    // Remove heavy metadata, optimize producer
     srcDoc.setTitle('');
     srcDoc.setAuthor('');
     srcDoc.setSubject('');
@@ -223,11 +287,85 @@ export class PdfEngineAdapter {
     srcDoc.setProducer('DocuSuite Compression Engine');
     srcDoc.setCreator('DocuSuite');
 
-    const bytes = await srcDoc.save({
+    // Recompress and downsample embedded images
+    for (const [, obj] of srcDoc.context.enumerateIndirectObjects()) {
+      if (obj instanceof PDFRawStream) {
+        const subtype = obj.dict.get(PDFName.of('Subtype'));
+        if (subtype === PDFName.of('Image')) {
+          const filter = obj.dict.get(PDFName.of('Filter'));
+          if (filter === PDFName.of('DCTDecode')) {
+            const hasSMask = obj.dict.has(PDFName.of('SMask'));
+            const wObj = obj.dict.get(PDFName.of('Width'));
+            const hObj = obj.dict.get(PDFName.of('Height'));
+            const w = wObj && typeof (wObj as any).asNumber === 'function' ? (wObj as any).asNumber() : null;
+            const h = hObj && typeof (hObj as any).asNumber === 'function' ? (hObj as any).asNumber() : null;
+
+            try {
+              let pipeline = sharp(Buffer.from(obj.contents));
+              let newW = w;
+              let newH = h;
+              // Downscale dimensions if larger than preset maximum (avoid if image has separate SMask transparency)
+              if (!hasSMask && w && h && (w > maxDimension || h > maxDimension)) {
+                if (w >= h) {
+                  newW = maxDimension;
+                  newH = Math.round((h * maxDimension) / w);
+                } else {
+                  newH = maxDimension;
+                  newW = Math.round((w * maxDimension) / h);
+                }
+                pipeline = pipeline.resize(newW, newH, { fit: 'inside' });
+              }
+
+              const compressedImg = await pipeline.jpeg({ quality, mozjpeg: true }).toBuffer();
+              if (compressedImg.length < obj.contents.length) {
+                (obj as any).contents = new Uint8Array(compressedImg);
+                obj.dict.set(PDFName.of('Length'), PDFNumber.of(compressedImg.length));
+                if (!hasSMask && newW && newH && (newW !== w || newH !== h)) {
+                  obj.dict.set(PDFName.of('Width'), PDFNumber.of(newW));
+                  obj.dict.set(PDFName.of('Height'), PDFNumber.of(newH));
+                }
+              }
+            } catch (imgErr: any) {
+              // Some unusual DCT streams may not decode via libvips; skip gracefully
+              logger.debug(`Skipped recompressing image stream: ${imgErr?.message || String(imgErr)}`);
+            }
+          }
+        }
+      }
+    }
+
+    const outBytes = await srcDoc.save({
       useObjectStreams: true,
       addDefaultPage: false
     });
-    return Buffer.from(bytes);
+
+    // If compression caused file size to grow (e.g. tiny 1-page vector PDF overhead), keep original
+    if (outBytes.length >= originalSize) {
+      return {
+        buffer: pdfBuffer,
+        originalSize,
+        finalSize: originalSize,
+        savedBytes: 0,
+        reductionPercentage: 0,
+        targetAchieved: targetSizeBytes ? originalSize <= targetSizeBytes : undefined,
+        presetUsed: preset
+      };
+    }
+
+    const finalSize = outBytes.length;
+    const savedBytes = originalSize - finalSize;
+    const reductionPercentage = Number(((savedBytes / originalSize) * 100).toFixed(1));
+    const targetAchieved = targetSizeBytes ? finalSize <= targetSizeBytes : undefined;
+
+    return {
+      buffer: Buffer.from(outBytes),
+      originalSize,
+      finalSize,
+      savedBytes,
+      reductionPercentage,
+      targetAchieved,
+      presetUsed: preset
+    };
   }
 
   /**

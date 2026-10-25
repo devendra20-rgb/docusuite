@@ -29,13 +29,18 @@ export class PdfToolsController {
       path: f.storedPath
     }));
 
+    const effectiveParameters: Record<string, unknown> = {
+      ...(typeof req.body === 'object' && req.body !== null ? req.body : {}),
+      ...parameters
+    };
+
     const job = await jobService.createJob({
       tool: toolName,
       userId: req.user?.id,
       isGuest: req.isGuest || false,
       guestIp: req.guestIp,
       inputFiles,
-      parameters
+      parameters: effectiveParameters
     });
 
     const jobData = {
@@ -46,7 +51,7 @@ export class PdfToolsController {
       isGuest: req.isGuest || false,
       guestIp: req.guestIp,
       inputFiles,
-      parameters
+      parameters: effectiveParameters
     };
 
     if (isAsync) {

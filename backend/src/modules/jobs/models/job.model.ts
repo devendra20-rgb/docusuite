@@ -18,6 +18,7 @@ export interface IJobOutputFile {
   size: number;
   path: string;
   downloadUrl: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface IJob extends Document {
@@ -96,7 +97,11 @@ const jobSchema = new Schema<IJob>(
         mimeType: String,
         size: Number,
         path: String,
-        downloadUrl: String
+        downloadUrl: String,
+        metadata: {
+          type: Schema.Types.Mixed,
+          default: {}
+        }
       }
     ],
     parameters: {
