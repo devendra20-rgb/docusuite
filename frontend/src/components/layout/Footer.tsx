@@ -7,7 +7,7 @@ import { Layers, ShieldCheck, Lock, Cpu, FileCheck } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   const pathname = usePathname();
-  if (pathname === '/tools/pdf/merge') {
+  if (pathname === '/tools/pdf/merge' || pathname === '/tools/pdf/split') {
     return null;
   }
 

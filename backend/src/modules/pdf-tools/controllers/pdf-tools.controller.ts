@@ -102,7 +102,8 @@ export class PdfToolsController {
   public split = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const ranges = (req.body.ranges || req.body.pageRanges) as string | undefined;
-      const result = await this.dispatchOrProcess(req, 'pdf-split', 'split', { ranges });
+      const mergeOne = req.body.mergeOne === 'true' || req.body.mergeOne === true || req.body.merge === 'true' || req.body.merge === true;
+      const result = await this.dispatchOrProcess(req, 'pdf-split', 'split', { ranges, mergeOne });
       res.status(200).json(result);
     } catch (err) {
       next(err);

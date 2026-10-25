@@ -49,8 +49,37 @@ export const processDocumentJob = async (job: Job<DocumentJobData>): Promise<voi
     } else if (operation === 'pdf-split') {
       const buffer = await storageService.getFileBuffer(inputFiles[0].path);
       const ranges = parameters.ranges as string | undefined;
+      const mergeOne = parameters.mergeOne === true || parameters.mergeOne === 'true' || parameters.merge === true || parameters.merge === 'true';
       await job.updateProgress(40);
-      const parts = await pdfEngine.split(buffer, ranges);
+
+      let parts: { name: string; buffer: Buffer }[];
+      if (mergeOne && ranges && ranges.trim() !== '' && ranges !== 'all') {
+        const pages: number[] = [];
+        const rawParts = ranges.split(',').map((s) => s.trim()).filter(Boolean);
+        for (const p of rawParts) {
+          if (p.includes('-')) {
+            const [s, e] = p.split('-').map(Number);
+            if (!isNaN(s) && !isNaN(e)) {
+              for (let i = s; i <= e; i++) pages.push(i);
+            }
+          } else {
+            const num = Number(p);
+            if (!isNaN(num)) pages.push(num);
+          }
+        }
+        if (pages.length > 0) {
+          const mergedBuf = await pdfEngine.extract(buffer, pages);
+          const baseName = inputFiles[0].originalName ? inputFiles[0].originalName.replace(/\.pdf$/i, '') : 'document';
+          parts = [{
+            name: `${baseName}-extracted.pdf`,
+            buffer: mergedBuf
+          }];
+        } else {
+          parts = await pdfEngine.split(buffer, ranges);
+        }
+      } else {
+        parts = await pdfEngine.split(buffer, ranges);
+      }
       await job.updateProgress(75);
 
       if (parts.length === 1) {

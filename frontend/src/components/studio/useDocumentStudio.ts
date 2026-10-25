@@ -754,17 +754,24 @@ export function useDocumentStudio({ tool }: UseDocumentStudioProps) {
             const fullUrl = getFullApiUrl(primaryDl);
             const verifyRes = await fetch(fullUrl);
             if (!verifyRes.ok) {
-              throw new Error(`Failed to fetch generated PDF (HTTP ${verifyRes.status})`);
+              throw new Error(`Failed to fetch generated output (HTTP ${verifyRes.status})`);
             }
             const buf = await verifyRes.arrayBuffer();
             verifiedSizeBytes = buf.byteLength;
-            const pdfDoc = await loadPdfDocument(buf);
-            verifiedPageCount = pdfDoc.numPages;
-            if (verifiedPageCount <= 0) {
-              throw new Error('Generated PDF contains 0 pages');
+
+            const filename = (res.outputFiles?.[0]?.filename || res.outputFiles?.[0]?.originalName || primaryDl).toLowerCase();
+            const mimeType = (res.outputFiles?.[0]?.mimeType || '').toLowerCase();
+            const isPdf = filename.endsWith('.pdf') || mimeType === 'application/pdf';
+
+            if (isPdf) {
+              const pdfDoc = await loadPdfDocument(buf);
+              verifiedPageCount = pdfDoc.numPages;
+              if (verifiedPageCount <= 0) {
+                throw new Error('Generated PDF contains 0 pages');
+              }
             }
           } catch (vErr: any) {
-            throw new Error(`Output verification failed: ${vErr?.message || 'Invalid output PDF'}`);
+            throw new Error(`Output verification failed: ${vErr?.message || 'Invalid output file'}`);
           }
         }
 
@@ -860,6 +867,13 @@ export function useDocumentStudio({ tool }: UseDocumentStudioProps) {
     setActivePageIndex(1);
     setSelectedPageIds(new Set());
     setHistory({ past: [], future: [] });
+    const initialParams: Record<string, any> = {};
+    tool.params?.forEach((p) => {
+      if (p.defaultValue !== undefined) {
+        initialParams[p.name] = p.defaultValue;
+      }
+    });
+    setParameters(initialParams);
     setOutputResult(null);
     setProcessingState({ status: 'idle', progress: 0, message: '' });
   };

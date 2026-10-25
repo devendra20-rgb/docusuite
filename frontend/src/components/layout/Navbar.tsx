@@ -20,8 +20,10 @@ export const Navbar: React.FC = () => {
   const [historyCount, setHistoryCount] = useState<number>(0);
   const [isHealthy, setIsHealthy] = useState<boolean | null>(null);
 
+  const isStudioPage = pathname === '/tools/pdf/merge' || pathname === '/tools/pdf/split';
+
   useEffect(() => {
-    if (pathname === '/tools/pdf/merge') return;
+    if (isStudioPage) return;
 
     // Sync history count with current session
     setHistoryCount(getSessionHistory().length);
@@ -32,9 +34,9 @@ export const Navbar: React.FC = () => {
     checkBackendHealth().then((res) => setIsHealthy(res.healthy));
 
     return () => window.removeEventListener('docusuite-history-updated', updateCount);
-  }, [pathname]);
+  }, [isStudioPage]);
 
-  if (pathname === '/tools/pdf/merge') {
+  if (isStudioPage) {
     return null;
   }
 
