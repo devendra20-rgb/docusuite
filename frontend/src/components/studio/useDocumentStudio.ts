@@ -683,13 +683,25 @@ export function useDocumentStudio({ tool }: UseDocumentStudioProps) {
 
         // If tool is rotate: ensure rotation is synced
         if (tool.slug === 'rotate') {
-          // If specific pages selected or rotated, sync them
-          const rotatedPages = activeDocument.pages
-            .filter((p) => p.rotation !== 0)
-            .map((p) => p.originalPageNumber);
-          if (rotatedPages.length > 0 && !effectiveParams.pages) {
-            effectiveParams.pages = rotatedPages;
-            effectiveParams.rotation = activeDocument.pages.find((p) => p.rotation !== 0)?.rotation || 90;
+          const pageRotationsMap: Record<number, number> = {};
+          let hasNonZero = false;
+          activeDocument.pages.forEach((p) => {
+            if (p.rotation !== 0) {
+              pageRotationsMap[p.originalPageNumber] = p.rotation;
+              hasNonZero = true;
+            }
+          });
+
+          if (hasNonZero) {
+            effectiveParams.pageRotations = pageRotationsMap;
+            const rotatedPages = Object.keys(pageRotationsMap).map(Number);
+            if (!effectiveParams.pages) {
+              effectiveParams.pages = rotatedPages;
+            }
+          } else {
+            // Net 0 rotation across all pages
+            effectiveParams.rotation = 0;
+            effectiveParams.pageRotations = {};
           }
         }
 

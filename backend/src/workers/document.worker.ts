@@ -160,10 +160,11 @@ export const processDocumentJob = async (job: Job<DocumentJobData>): Promise<voi
       });
     } else if (operation === 'pdf-rotate') {
       const buffer = await storageService.getFileBuffer(inputFiles[0].path);
-      const rotation = (parameters.rotation as 90 | 180 | 270) || 90;
+      const rotation = parameters.rotation !== undefined ? Number(parameters.rotation) : 90;
       const pages = parameters.pages as number[] | undefined;
+      const pageRotations = parameters.pageRotations as any;
       await job.updateProgress(40);
-      const rotated = await pdfEngine.rotate(buffer, rotation, pages);
+      const rotated = await pdfEngine.rotate(buffer, rotation, pages, pageRotations);
       await job.updateProgress(80);
 
       const saved = await storageService.saveOutputFile(

@@ -165,6 +165,60 @@ describe('PdfEngineAdapter (Phase 1 PDF Tools)', () => {
     it('should throw ValidationError on out-of-range page number', async () => {
       await expect(pdfEngine.rotate(samplePdf3Pages, 90, [5])).rejects.toThrow(ValidationError);
     });
+
+    it('should handle per-page mixed rotations accurately', async () => {
+      const pageRotations = { 1: 90, 2: 180 };
+      const rotated = await pdfEngine.rotate(samplePdf3Pages, 0, undefined, pageRotations);
+      const doc = await PDFDocument.load(rotated);
+      expect(doc.getPage(0).getRotation().angle).toBe(90);
+      expect(doc.getPage(1).getRotation().angle).toBe(180);
+      expect(doc.getPage(2).getRotation().angle).toBe(0);
+    });
+
+    it('should handle array format for pageRotations', async () => {
+      const pageRotations = [
+        { pageNumber: 1, rotation: 270 },
+        { pageNumber: 3, rotation: 90 }
+      ];
+      const rotated = await pdfEngine.rotate(samplePdf3Pages, 0, undefined, pageRotations);
+      const doc = await PDFDocument.load(rotated);
+      expect(doc.getPage(0).getRotation().angle).toBe(270);
+      expect(doc.getPage(1).getRotation().angle).toBe(0);
+      expect(doc.getPage(2).getRotation().angle).toBe(90);
+    });
+
+    it('should handle 360° net rotation / 0° rotation without corrupting pages', async () => {
+      const rotatedZero = await pdfEngine.rotate(samplePdf3Pages, 0);
+      const docZero = await PDFDocument.load(rotatedZero);
+      expect(docZero.getPage(0).getRotation().angle).toBe(0);
+      expect(docZero.getPage(1).getRotation().angle).toBe(0);
+
+      const rotated360 = await pdfEngine.rotate(samplePdf3Pages, 360);
+      const doc360 = await PDFDocument.load(rotated360);
+      expect(doc360.getPage(0).getRotation().angle).toBe(0);
+    });
+
+    it('should preserve and accumulate existing PDF rotation metadata', async () => {
+      // First rotate page 1 by 90
+      const step1 = await pdfEngine.rotate(samplePdf3Pages, 90, [1]);
+      const doc1 = await PDFDocument.load(step1);
+      expect(doc1.getPage(0).getRotation().angle).toBe(90);
+
+      // Rotate page 1 by another 90 (should accumulate to 180)
+      const step2 = await pdfEngine.rotate(step1, 90, [1]);
+      const doc2 = await PDFDocument.load(step2);
+      expect(doc2.getPage(0).getRotation().angle).toBe(180);
+    });
+
+    it('should throw ValidationError on out-of-range page number in pageRotations', async () => {
+      await expect(
+        pdfEngine.rotate(samplePdf3Pages, 0, undefined, { 99: 90 })
+      ).rejects.toThrow(ValidationError);
+    });
+
+    it('should throw ValidationError for empty pages array when specified', async () => {
+      await expect(pdfEngine.rotate(samplePdf3Pages, 90, [])).rejects.toThrow(ValidationError);
+    });
   });
 
   // 9. Reorder

@@ -162,6 +162,37 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.success).toBe(true);
     });
 
+    it('POST /api/tools/pdf/rotate should support per-page rotations via pageRotations', async () => {
+      const res = await request(app)
+        .post('/api/tools/pdf/rotate')
+        .field('pageRotations', JSON.stringify({ 1: 90, 2: 180 }))
+        .attach('files', samplePdf1, 'doc1.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
+    it('POST /api/tools/pdf/rotate should allow 0 degree net rotation without error', async () => {
+      const res = await request(app)
+        .post('/api/tools/pdf/rotate')
+        .field('rotation', '0')
+        .attach('files', samplePdf1, 'doc.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
+    it('POST /api/tools/pdf/rotate should reject invalid non-numeric pages input', async () => {
+      const res = await request(app)
+        .post('/api/tools/pdf/rotate')
+        .field('rotation', '90')
+        .field('pages', 'abc')
+        .attach('files', samplePdf1, 'doc.pdf');
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
     it('POST /api/tools/images/to-pdf should convert uploaded images to PDF', async () => {
       const res = await request(app)
         .post('/api/tools/images/to-pdf')

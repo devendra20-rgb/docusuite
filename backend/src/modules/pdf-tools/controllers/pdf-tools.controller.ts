@@ -156,17 +156,55 @@ export class PdfToolsController {
   // 8. Rotate PDF
   public rotate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const rotation = Number(req.body.rotation) || 90;
-      if (![90, 180, 270].includes(rotation)) {
-        throw new ValidationError('Rotation must be 90, 180, or 270 degrees');
+      let rawRotation = 90;
+      if (req.body.rotation !== undefined && req.body.rotation !== '') {
+        const parsed = Number(req.body.rotation);
+        if (isNaN(parsed) || parsed % 90 !== 0) {
+          throw new ValidationError('Rotation must be 0, 90, 180, or 270 degrees');
+        }
+        rawRotation = parsed;
       }
+      const rotation = ((rawRotation % 360) + 360) % 360;
+      if (![0, 90, 180, 270].includes(rotation)) {
+        throw new ValidationError('Rotation must be 0, 90, 180, or 270 degrees');
+      }
+
       let pages: number[] | undefined;
-      if (req.body.pages) {
-        pages = Array.isArray(req.body.pages)
-          ? req.body.pages.map(Number)
-          : String(req.body.pages).split(',').map(s => Number(s.trim())).filter(n => !isNaN(n));
+      if (req.body.pages !== undefined && req.body.pages !== '') {
+        const rawList = Array.isArray(req.body.pages)
+          ? req.body.pages
+          : String(req.body.pages).split(',').map((s) => s.trim()).filter(Boolean);
+
+        if (rawList.length === 0) {
+          throw new ValidationError('Invalid page number specified in pages parameter');
+        }
+
+        pages = (rawList as any[]).map((item: any) => {
+          const n = Number(item);
+          if (isNaN(n) || !Number.isInteger(n) || n < 1) {
+            throw new ValidationError(`Invalid page number "${item}" in pages parameter`);
+          }
+          return n;
+        });
       }
-      const result = await this.dispatchOrProcess(req, 'pdf-rotate', 'rotate', { rotation, pages });
+
+      let pageRotations: any = undefined;
+      if (req.body.pageRotations !== undefined && req.body.pageRotations !== '') {
+        pageRotations = req.body.pageRotations;
+        if (typeof pageRotations === 'string') {
+          try {
+            pageRotations = JSON.parse(pageRotations);
+          } catch {
+            throw new ValidationError('pageRotations must be valid JSON');
+          }
+        }
+      }
+
+      const result = await this.dispatchOrProcess(req, 'pdf-rotate', 'rotate', {
+        rotation,
+        pages,
+        pageRotations
+      });
       res.status(200).json(result);
     } catch (err) {
       next(err);

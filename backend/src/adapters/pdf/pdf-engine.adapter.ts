@@ -474,12 +474,57 @@ export class PdfEngineAdapter {
    */
   public async rotate(
     pdfBuffer: Buffer,
-    rotation: 90 | 180 | 270,
-    pageNumbers?: number[]
+    rotation: number = 90,
+    pageNumbers?: number[],
+    pageRotations?: Record<string | number, number> | Array<{ pageNumber: number; rotation: number }>
   ): Promise<Buffer> {
     const doc = await this.loadPdf(pdfBuffer);
     const total = doc.getPageCount();
 
+    // Check if per-page rotations provided
+    if (pageRotations) {
+      const rotationMap = new Map<number, number>();
+      if (Array.isArray(pageRotations)) {
+        for (const item of pageRotations) {
+          const p = Number(item.pageNumber);
+          const r = Number(item.rotation);
+          if (isNaN(p) || !Number.isInteger(p) || p < 1 || p > total) {
+            throw new ValidationError(`Invalid page number ${item.pageNumber}. Total pages: ${total}`);
+          }
+          if (isNaN(r) || r % 90 !== 0) {
+            throw new ValidationError(`Invalid rotation angle for page ${item.pageNumber}: ${item.rotation}`);
+          }
+          rotationMap.set(p, ((r % 360) + 360) % 360);
+        }
+      } else if (typeof pageRotations === 'object' && pageRotations !== null) {
+        for (const [key, val] of Object.entries(pageRotations)) {
+          const p = Number(key);
+          const r = Number(val);
+          if (isNaN(p) || !Number.isInteger(p) || p < 1 || p > total) {
+            throw new ValidationError(`Invalid page number ${key}. Total pages: ${total}`);
+          }
+          if (isNaN(r) || r % 90 !== 0) {
+            throw new ValidationError(`Invalid rotation angle for page ${key}: ${val}`);
+          }
+          rotationMap.set(p, ((r % 360) + 360) % 360);
+        }
+      }
+
+      for (const [pageNum, angle] of rotationMap.entries()) {
+        const page = doc.getPage(pageNum - 1);
+        const currentRotation = page.getRotation().angle;
+        page.setRotation(degrees((currentRotation + angle) % 360));
+      }
+
+      const bytes = await doc.save();
+      return Buffer.from(bytes);
+    }
+
+    if (pageNumbers !== undefined && pageNumbers.length === 0) {
+      throw new ValidationError('pages array must not be empty if specified');
+    }
+
+    const normalizedRotation = ((rotation % 360) + 360) % 360;
     const targetPages = pageNumbers && pageNumbers.length > 0
       ? pageNumbers
       : Array.from({ length: total }, (_, i) => i + 1);
@@ -490,7 +535,7 @@ export class PdfEngineAdapter {
       }
       const page = doc.getPage(pageNum - 1);
       const currentRotation = page.getRotation().angle;
-      page.setRotation(degrees((currentRotation + rotation) % 360));
+      page.setRotation(degrees((currentRotation + normalizedRotation) % 360));
     }
 
     const bytes = await doc.save();
