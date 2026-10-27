@@ -53,9 +53,11 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   canAddMore
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const activeRenderTaskRef = useRef<ActiveRenderTask | null>(null);
   const renderSequenceRef = useRef<number>(0);
+  const pageSizeRef = useRef<{ width: number; height: number }>({ width: 595, height: 842 });
 
   const [isRendering, setIsRendering] = useState<boolean>(false);
   const [renderError, setRenderError] = useState<string | null>(null);
@@ -100,26 +102,36 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
   const effectivePdfDoc = activePdfDoc || internalPdfDoc;
 
-  // Calculate zoom based on container width or height when in fit-width / fit-page
+  // Calculate zoom based on inner viewport width/height and actual page dimensions
   const calculateAutoZoom = useCallback(
-    (mode: ZoomMode, baseWidth = 595, baseHeight = 842): number => {
-      if (!containerRef.current) return 1.0;
-      const containerWidth = containerRef.current.clientWidth - 48; // padding
-      const containerHeight = containerRef.current.clientHeight - 80;
+    (mode: ZoomMode, customWidth?: number, customHeight?: number): number => {
+      const viewport = viewportRef.current || containerRef.current;
+      if (!viewport) return 1.0;
+
+      const pW = customWidth || pageSizeRef.current.width || 595;
+      const pH = customHeight || pageSizeRef.current.height || 842;
+
+      // Inner viewport available dimensions excluding padding & border margin
+      // p-4 / p-6 gives 32px or 48px padding; subtract 56px to guarantee clearance for borders/shadows
+      const isSmall = viewport.clientWidth < 640;
+      const pad = isSmall ? 36 : 56;
+      const availWidth = Math.max(100, viewport.clientWidth - pad);
+      const availHeight = Math.max(100, viewport.clientHeight - pad);
 
       if (mode === 'fit-width') {
-        const calculated = containerWidth / baseWidth;
-        return Math.min(Math.max(calculated, 0.4), 2.2);
+        const calculated = availWidth / pW;
+        return Number(Math.min(Math.max(calculated, 0.25), 2.5).toFixed(3));
       }
       if (mode === 'fit-page') {
-        const scaleW = containerWidth / baseWidth;
-        const scaleH = containerHeight / baseHeight;
+        const scaleW = availWidth / pW;
+        const scaleH = availHeight / pH;
+        // Limiting dimension ensures complete page fits without clipping or distortion
         const calculated = Math.min(scaleW, scaleH);
-        return Math.min(Math.max(calculated, 0.4), 2.0);
+        return Number(Math.min(Math.max(calculated, 0.25), 2.5).toFixed(3));
       }
-      return zoom;
+      return 1.0;
     },
-    [zoom]
+    []
   );
 
   // Render current PDF page with sequence counter to prevent stale renders
@@ -134,74 +146,112 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
     if (!canvasRef.current) return;
 
+    let isCancelled = false;
     const currentSeq = ++renderSequenceRef.current;
 
-    // Cancel any in-flight rendering task
-    if (activeRenderTaskRef.current) {
-      activeRenderTaskRef.current.cancel();
-      activeRenderTaskRef.current = null;
-    }
+    (async () => {
+      try {
+        const pageNumber = activePage.originalPageNumber;
+        const page = await effectivePdfDoc.getPage(pageNumber);
+        if (isCancelled) return;
 
-    setIsRendering(true);
-    setRenderError(null);
+        const baseRotation = page.rotate || 0;
+        const extraRotation = activePage.rotation || 0;
+        const totalRotation = (baseRotation + extraRotation) % 360;
 
-    const canvas = canvasRef.current;
+        // Query actual unscaled page dimensions taking rotation into account
+        const unscaledViewport = page.getViewport({ scale: 1, rotation: totalRotation });
+        const pWidth = unscaledViewport.width;
+        const pHeight = unscaledViewport.height;
+        pageSizeRef.current = { width: pWidth, height: pHeight };
 
-    // Clear canvas immediately to avoid lingering stale graphics
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
+        let targetScale = zoom;
+        if (zoomMode !== 'custom') {
+          targetScale = calculateAutoZoom(zoomMode, pWidth, pHeight);
+          if (Math.abs(targetScale - zoom) > 0.01) {
+            onZoomChange(targetScale);
+          }
+        }
 
-    const pageNumber = activePage.originalPageNumber;
-    const rotation = activePage.rotation;
+        if (!canvasRef.current || isCancelled) return;
+        const canvas = canvasRef.current;
 
-    let targetScale = zoom;
-    if (zoomMode !== 'custom') {
-      targetScale = calculateAutoZoom(zoomMode);
-    }
+        // Cancel any in-flight rendering task
+        if (activeRenderTaskRef.current) {
+          activeRenderTaskRef.current.cancel();
+          activeRenderTaskRef.current = null;
+        }
 
-    const task = renderPageToCanvas(effectivePdfDoc, pageNumber, canvas, {
-      scale: targetScale,
-      rotation
-    });
+        setIsRendering(true);
+        setRenderError(null);
 
-    activeRenderTaskRef.current = task;
+        // Clear canvas immediately to avoid lingering stale graphics
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
 
-    task.promise
-      .then(() => {
-        if (currentSeq === renderSequenceRef.current) {
+        const task = renderPageToCanvas(effectivePdfDoc, pageNumber, canvas, {
+          scale: targetScale,
+          rotation: activePage.rotation
+        });
+
+        activeRenderTaskRef.current = task;
+        await task.promise;
+        if (!isCancelled && currentSeq === renderSequenceRef.current) {
           setIsRendering(false);
         }
-      })
-      .catch((err: any) => {
-        if (currentSeq === renderSequenceRef.current) {
+      } catch (err: any) {
+        if (!isCancelled && currentSeq === renderSequenceRef.current) {
           if (err?.name !== 'RenderingCancelledException') {
             setRenderError(err?.message || 'Failed to render PDF page');
           }
           setIsRendering(false);
         }
-      });
+      }
+    })();
 
     return () => {
-      task.cancel();
+      isCancelled = true;
+      if (activeRenderTaskRef.current) {
+        activeRenderTaskRef.current.cancel();
+      }
     };
-  }, [document, effectivePdfDoc, activePage, zoom, zoomMode, calculateAutoZoom]);
+  }, [
+    document,
+    effectivePdfDoc,
+    activePage,
+    activePage?.originalPageNumber,
+    activePage?.rotation,
+    zoom,
+    zoomMode,
+    calculateAutoZoom,
+    onZoomChange
+  ]);
 
-  // Window resize observer to update fit-width / fit-page dynamically
+  // Reset scroll position to top when document or page changes, or when fit-page is active
   useEffect(() => {
-    if (!containerRef.current || zoomMode === 'custom') return;
+    if (viewportRef.current) {
+      viewportRef.current.scrollTop = 0;
+      viewportRef.current.scrollLeft = 0;
+    }
+  }, [document?.id, activePageIndex, zoomMode]);
+
+  // Window/viewport resize observer to update fit-width / fit-page dynamically
+  useEffect(() => {
+    const targetEl = viewportRef.current || containerRef.current;
+    if (!targetEl || zoomMode === 'custom') return;
 
     const handleResize = () => {
       const newZoom = calculateAutoZoom(zoomMode);
-      if (Math.abs(newZoom - zoom) > 0.05) {
+      if (Math.abs(newZoom - zoom) > 0.02) {
         onZoomChange(newZoom);
       }
     };
 
     const observer = new ResizeObserver(handleResize);
-    observer.observe(containerRef.current);
+    observer.observe(targetEl);
     return () => observer.disconnect();
   }, [zoomMode, calculateAutoZoom, onZoomChange, zoom]);
 
@@ -219,12 +269,12 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   // Zoom helpers
   const handleZoomIn = () => {
     onZoomModeChange('custom');
-    onZoomChange(Math.min(zoom + 0.2, 2.5));
+    onZoomChange(Number(Math.min(zoom + 0.15, 3.0).toFixed(2)));
   };
 
   const handleZoomOut = () => {
     onZoomModeChange('custom');
-    onZoomChange(Math.max(zoom - 0.2, 0.4));
+    onZoomChange(Number(Math.max(zoom - 0.15, 0.25).toFixed(2)));
   };
 
   const handleFitWidth = () => {
@@ -398,7 +448,10 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       </div>
 
       {/* Main Canvas / Content Viewport */}
-      <div className="flex-1 overflow-auto p-6 flex items-center justify-center relative bg-slate-100/90">
+      <div
+        ref={viewportRef}
+        className="flex-1 overflow-auto p-4 sm:p-6 flex relative bg-slate-100/90"
+      >
         {/* Loading Spinner */}
         {(isRendering || (!effectivePdfDoc && document.isPdf)) && (
           <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex items-center justify-center z-20 transition-opacity">
@@ -411,7 +464,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
         {/* Error state */}
         {renderError && (
-          <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center space-x-2 max-w-md">
+          <div className="m-auto p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center space-x-2 max-w-md">
             <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
             <span>{renderError}</span>
           </div>
@@ -419,7 +472,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
         {/* PDF Render Canvas */}
         {document.isPdf && (
-          <div className="relative shadow-xl border border-slate-300/80 rounded-sm overflow-hidden transition-transform duration-150">
+          <div className="m-auto relative shadow-xl border border-slate-300/80 rounded-sm overflow-hidden transition-transform duration-150">
             <canvas ref={canvasRef} className="block bg-white shadow-md" />
 
             {/* Excluded / Deleted Page Overlay */}
@@ -444,7 +497,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
         {/* Image Source File Preview */}
         {document.isImage && (
-          <div className="relative max-w-full max-h-full flex items-center justify-center">
+          <div className="m-auto relative max-w-full max-h-full flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={document.objectUrl}

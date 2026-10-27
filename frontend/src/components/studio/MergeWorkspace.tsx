@@ -310,6 +310,8 @@ export const MergeWorkspace: React.FC<MergeWorkspaceProps> = ({ tool }) => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      setThumbnails({});
+      setHasDownloaded(false);
     };
   }, []);
 
@@ -491,6 +493,7 @@ export const MergeWorkspace: React.FC<MergeWorkspaceProps> = ({ tool }) => {
 
             <Link
               href="/tools"
+              onClick={handleStartNewMerge}
               className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
             >
               <span>Back to PDF Tools</span>
@@ -499,8 +502,8 @@ export const MergeWorkspace: React.FC<MergeWorkspaceProps> = ({ tool }) => {
         </header>
 
         {/* Completion Body */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-8 flex items-center justify-center">
-          <div className="max-w-2xl w-full bg-white rounded-3xl border border-slate-200/80 shadow-xl p-8 sm:p-10 flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col">
+          <div className="m-auto max-w-2xl w-full bg-white rounded-3xl border border-slate-200/80 shadow-xl p-8 sm:p-10 flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200">
             {/* Success Icon Badge */}
             <div className="w-16 h-16 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/25 mb-5">
               <CheckCircle2 className="w-9 h-9" />
@@ -627,6 +630,7 @@ export const MergeWorkspace: React.FC<MergeWorkspaceProps> = ({ tool }) => {
             <div className="mt-6 pt-4 border-t border-slate-100 w-full flex items-center justify-center">
               <Link
                 href="/tools"
+                onClick={handleStartNewMerge}
                 className="inline-flex items-center space-x-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />

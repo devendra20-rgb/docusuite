@@ -35,7 +35,7 @@ export function useDocumentStudio({ tool }: UseDocumentStudioProps) {
 
   // Zoom & View configuration
   const [zoom, setZoom] = useState<number>(1.0);
-  const [zoomMode, setZoomMode] = useState<ZoomMode>('fit-width');
+  const [zoomMode, setZoomMode] = useState<ZoomMode>('fit-page');
   const [viewMode, setViewMode] = useState<ViewMode>('single');
 
   // Tool parameter form state
@@ -137,6 +137,13 @@ export function useDocumentStudio({ tool }: UseDocumentStudioProps) {
   useEffect(() => {
     return () => {
       cleanupDocumentUrls(documentsRef.current);
+      setDocuments([]);
+      setActiveDocId(null);
+      setActivePageIndex(1);
+      setSelectedPageIds(new Set());
+      setHistory({ past: [], future: [] });
+      setOutputResult(null);
+      setProcessingState({ status: 'idle', progress: 0, message: '' });
     };
   }, [cleanupDocumentUrls]);
 
@@ -306,6 +313,7 @@ export function useDocumentStudio({ tool }: UseDocumentStudioProps) {
         if (!activeDocId) {
           setActiveDocId(newDocs[0].id);
           setActivePageIndex(1);
+          setZoomMode('fit-page');
         }
       }
     }
@@ -870,6 +878,8 @@ export function useDocumentStudio({ tool }: UseDocumentStudioProps) {
   const selectDocumentAndPage = useCallback((docId: string, pageIndex = 1) => {
     setActiveDocId(docId);
     setActivePageIndex(pageIndex);
+    // When switching documents, return to fit-page to prevent retaining unexpectedly high zoom
+    setZoomMode('fit-page');
   }, []);
 
   const resetWorkspace = () => {
@@ -877,6 +887,8 @@ export function useDocumentStudio({ tool }: UseDocumentStudioProps) {
     setDocuments([]);
     setActiveDocId(null);
     setActivePageIndex(1);
+    setZoomMode('fit-page');
+    setZoom(1.0);
     setSelectedPageIds(new Set());
     setHistory({ past: [], future: [] });
     const initialParams: Record<string, any> = {};
