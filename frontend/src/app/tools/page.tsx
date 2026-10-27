@@ -66,7 +66,7 @@ export default function ToolsDirectoryPage() {
         {/* Category Filter Pills */}
         <div className="flex items-center justify-center space-x-2 overflow-x-auto pb-4 mb-8">
           <div className="flex items-center space-x-1.5 p-1 bg-white border border-slate-200 rounded-xl shadow-xs">
-            {CATEGORIES.filter((c) => c !== 'Convert').map((cat) => {
+            {CATEGORIES.map((cat) => {
               const isActive = activeCategory === cat;
               return (
                 <button

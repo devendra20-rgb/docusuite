@@ -14,7 +14,13 @@ export class PdfToolsController {
     toolName: string,
     parameters: Record<string, unknown> = {}
   ) {
-    const isAsync = req.query.async === 'true' || req.body.async === 'true' || req.body.async === true;
+    const isAsync =
+      req.query.async === 'true' ||
+      req.query.async === '1' ||
+      req.body.async === 'true' ||
+      req.body.async === true ||
+      req.body.async === 1 ||
+      req.body.async === '1';
     const storedFiles = req.storedFiles || [];
 
     if (storedFiles.length === 0) {
@@ -128,12 +134,56 @@ export class PdfToolsController {
   // 4 & 5. PDF to Images (JPG or PNG)
   public toImages = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const format = (req.body.format || req.query.format || 'png').toString().toLowerCase();
+      const format = (req.body.format || req.query.format || 'jpg').toString().toLowerCase();
       if (format !== 'jpg' && format !== 'jpeg' && format !== 'png') {
         throw new ValidationError('Format must be either jpg or png');
       }
       const normalizedFormat = format === 'jpeg' ? 'jpg' : format;
-      const result = await this.dispatchOrProcess(req, 'pdf-to-images', 'to-images', { format: normalizedFormat });
+
+      let dpi: number | undefined;
+      if (req.body.dpi !== undefined && req.body.dpi !== '') {
+        const parsedDpi = Number(req.body.dpi);
+        if (isNaN(parsedDpi) || parsedDpi < 36 || parsedDpi > 600) {
+          throw new ValidationError('DPI must be a number between 36 and 600 (e.g. 72, 150, 300)');
+        }
+        dpi = parsedDpi;
+      }
+
+      let quality: number | undefined;
+      if (req.body.quality !== undefined && req.body.quality !== '') {
+        const parsedQuality = Number(req.body.quality);
+        if (isNaN(parsedQuality) || parsedQuality < 10 || parsedQuality > 100) {
+          throw new ValidationError('Quality must be an integer between 10 and 100');
+        }
+        quality = Math.round(parsedQuality);
+      }
+
+      let pages: number[] | undefined;
+      if (req.body.pages !== undefined && req.body.pages !== '') {
+        const rawList = Array.isArray(req.body.pages)
+          ? req.body.pages
+          : String(req.body.pages).split(',').map((s) => s.trim()).filter(Boolean);
+
+        if (rawList.length > 0) {
+          pages = (rawList as any[]).map((item: any) => {
+            const n = Number(item);
+            if (isNaN(n) || !Number.isInteger(n) || n < 1) {
+              throw new ValidationError(`Invalid page number "${item}" in pages parameter`);
+            }
+            return n;
+          });
+        }
+      }
+
+      const password = req.body.password ? String(req.body.password) : undefined;
+
+      const result = await this.dispatchOrProcess(req, 'pdf-to-images', 'to-images', {
+        format: normalizedFormat,
+        dpi,
+        quality,
+        pages,
+        password
+      });
       res.status(200).json(result);
     } catch (err) {
       next(err);

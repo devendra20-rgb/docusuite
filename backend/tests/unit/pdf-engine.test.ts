@@ -125,6 +125,31 @@ describe('PdfEngineAdapter (Phase 1 PDF Tools)', () => {
       expect(images[0].mimeType).toBe('image/jpeg');
       expect(images[0].buffer.length).toBeGreaterThan(100);
     });
+
+    it('should support page selection and render only specified pages', async () => {
+      const images = await pdfEngine.pdfToImages(samplePdf3Pages, 'jpg', { pages: [2] });
+      expect(images).toHaveLength(1);
+      expect(images[0].page).toBe(2);
+      expect(images[0].mimeType).toBe('image/jpeg');
+    });
+
+    it('should support DPI and quality options in single-pass encoding', async () => {
+      const standardDpi = await pdfEngine.pdfToImages(samplePdf2Pages, 'jpg', { dpi: 72, quality: 75 });
+      const highDpi = await pdfEngine.pdfToImages(samplePdf2Pages, 'jpg', { dpi: 150, quality: 95 });
+      expect(standardDpi[0].buffer.length).toBeGreaterThan(50);
+      expect(highDpi[0].buffer.length).toBeGreaterThan(standardDpi[0].buffer.length);
+    });
+
+    it('should throw ValidationError on out-of-range page selection', async () => {
+      await expect(
+        pdfEngine.pdfToImages(samplePdf2Pages, 'jpg', { pages: [99] })
+      ).rejects.toThrow(ValidationError);
+    });
+
+    it('should throw ValidationError on malformed or corrupted PDF buffer', async () => {
+      const corruptPdf = Buffer.from('%PDF-1.4 corrupted trailer garbage');
+      await expect(pdfEngine.pdfToImages(corruptPdf, 'jpg')).rejects.toThrow(ValidationError);
+    });
   });
 
   // 6 & 7. Images to PDF

@@ -85,11 +85,11 @@ export async function submitDocumentJob(
     }
   });
 
+  let targetUrl = getFullApiUrl(endpoint);
   if (options?.isAsync) {
+    targetUrl += (targetUrl.includes('?') ? '&' : '?') + 'async=true';
     formData.append('async', 'true');
   }
-
-  const targetUrl = getFullApiUrl(endpoint);
   options?.onProgress?.(15, 'Uploading files to server...');
 
   let initialResponse: Response;

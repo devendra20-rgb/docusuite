@@ -193,6 +193,66 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.success).toBe(false);
     });
 
+    it('POST /api/tools/pdf/to-images should convert a PDF to JPG images and return ZIP with individual files', async () => {
+      const res = await request(app)
+        .post('/api/tools/pdf/to-images')
+        .field('format', 'jpg')
+        .field('dpi', '150')
+        .field('quality', '85')
+        .attach('files', samplePdf1, 'sample_report.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBeGreaterThanOrEqual(1);
+      // Primary download is the ZIP bundle
+      expect(res.body.outputFiles[0].mimeType).toBe('application/zip');
+      expect(res.body.outputFiles[0].originalName).toContain('sample_report');
+    });
+
+    it('POST /api/tools/pdf/to-images should support specific page range filtering', async () => {
+      const res = await request(app)
+        .post('/api/tools/pdf/to-images')
+        .field('format', 'png')
+        .field('pages', '1')
+        .attach('files', samplePdf1, 'single_page.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles[0].mimeType).toBe('image/png');
+    });
+
+    it('POST /api/tools/pdf/to-images should reject invalid format parameter with 400', async () => {
+      const res = await request(app)
+        .post('/api/tools/pdf/to-images')
+        .field('format', 'bmp')
+        .attach('files', samplePdf1, 'doc.pdf');
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('POST /api/tools/pdf/to-images should reject invalid DPI with 400', async () => {
+      const res = await request(app)
+        .post('/api/tools/pdf/to-images')
+        .field('dpi', '9999')
+        .attach('files', samplePdf1, 'doc.pdf');
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('POST /api/tools/pdf/to-images should reject corrupted PDF structure with 400 validation error', async () => {
+      const corruptPdf = Buffer.from('%PDF-1.4 malformed header and corrupted xref trailer');
+      const res = await request(app)
+        .post('/api/tools/pdf/to-images')
+        .field('format', 'jpg')
+        .attach('files', corruptPdf, 'broken.pdf');
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
     it('POST /api/tools/images/to-pdf should convert uploaded images to PDF', async () => {
       const res = await request(app)
         .post('/api/tools/images/to-pdf')

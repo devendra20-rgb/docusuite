@@ -374,8 +374,39 @@ export class PdfEngineAdapter {
   public async pdfToImages(
     pdfBuffer: Buffer,
     format: 'jpg' | 'png' = 'png',
-    scale = 1.5
+    scaleOrOptions: number | {
+      scale?: number;
+      dpi?: number;
+      quality?: number;
+      pages?: number[];
+      password?: string;
+      onPageProgress?: (page: number, total: number) => void | Promise<void>;
+    } = 1.5
   ): Promise<{ page: number; buffer: Buffer; mimeType: string }[]> {
+    let scale = 1.5;
+    let quality = 85;
+    let targetPages: number[] | undefined;
+    let password: string | undefined;
+    let onPageProgress: ((page: number, total: number) => void | Promise<void>) | undefined;
+
+    if (typeof scaleOrOptions === 'number') {
+      scale = scaleOrOptions;
+    } else if (typeof scaleOrOptions === 'object' && scaleOrOptions !== null) {
+      if (scaleOrOptions.dpi) {
+        scale = scaleOrOptions.dpi / 72;
+      } else if (scaleOrOptions.scale) {
+        scale = scaleOrOptions.scale;
+      }
+      if (scaleOrOptions.quality !== undefined) {
+        quality = Math.max(10, Math.min(100, Math.round(Number(scaleOrOptions.quality))));
+      }
+      if (scaleOrOptions.pages && Array.isArray(scaleOrOptions.pages)) {
+        targetPages = scaleOrOptions.pages;
+      }
+      password = scaleOrOptions.password;
+      onPageProgress = scaleOrOptions.onPageProgress;
+    }
+
     try {
       const canvasModule = await import('@napi-rs/canvas');
       const { createCanvas } = canvasModule;
@@ -385,17 +416,82 @@ export class PdfEngineAdapter {
       const pdfjsModule = await import('pdfjs-dist/legacy/build/pdf.mjs');
       const pdfjs: any = (pdfjsModule as any).getDocument ? pdfjsModule : (pdfjsModule as any).default || pdfjsModule;
 
-      const loadingTask = pdfjs.getDocument({
-        data: new Uint8Array(pdfBuffer),
-        useSystemFonts: true,
-        disableFontFace: true,
-        isEvalSupported: false
-      });
-      const doc = await loadingTask.promise;
-      const results: { page: number; buffer: Buffer; mimeType: string }[] = [];
+      class NodeCanvasFactory {
+        create(width: number, height: number) {
+          const canvas = createCanvas(Math.max(1, Math.round(width)), Math.max(1, Math.round(height)));
+          const context = canvas.getContext('2d');
+          return { canvas, context };
+        }
+        reset(entry: any, width: number, height: number) {
+          entry.canvas.width = Math.max(1, Math.round(width));
+          entry.canvas.height = Math.max(1, Math.round(height));
+        }
+        destroy(entry: any) {
+          entry.canvas.width = 0;
+          entry.canvas.height = 0;
+          entry.canvas = null;
+          entry.context = null;
+        }
+      }
 
-      for (let i = 1; i <= doc.numPages; i++) {
-        const page = await doc.getPage(i);
+      let doc: any;
+      try {
+        const loadingTask = pdfjs.getDocument({
+          data: new Uint8Array(pdfBuffer),
+          CanvasFactory: NodeCanvasFactory,
+          useSystemFonts: true,
+          disableFontFace: true,
+          isEvalSupported: false,
+          password: password || undefined
+        });
+        doc = await loadingTask.promise;
+      } catch (loadErr: any) {
+        const errMsg = loadErr?.message || String(loadErr);
+        if (
+          loadErr?.name === 'PasswordException' ||
+          errMsg.toLowerCase().includes('password') ||
+          errMsg.toLowerCase().includes('encrypted')
+        ) {
+          throw new ValidationError('This PDF document is encrypted or password-protected.');
+        }
+        if (
+          loadErr?.name === 'InvalidPDFException' ||
+          errMsg.toLowerCase().includes('invalid pdf') ||
+          errMsg.toLowerCase().includes('corrupt')
+        ) {
+          throw new ValidationError(`Invalid or corrupted PDF document structure: ${errMsg}`);
+        }
+        throw new ValidationError(`Failed to open PDF document: ${errMsg}`);
+      }
+
+      const totalPages = doc.numPages;
+      if (totalPages === 0) {
+        throw new ValidationError('PDF document contains 0 pages.');
+      }
+
+      const pagesToRender: number[] = [];
+      if (targetPages && targetPages.length > 0) {
+        for (const p of targetPages) {
+          const num = Number(p);
+          if (isNaN(num) || !Number.isInteger(num) || num < 1 || num > totalPages) {
+            throw new ValidationError(`Invalid page number ${p}. Total pages in document: ${totalPages}`);
+          }
+          if (!pagesToRender.includes(num)) {
+            pagesToRender.push(num);
+          }
+        }
+      } else {
+        for (let i = 1; i <= totalPages; i++) {
+          pagesToRender.push(i);
+        }
+      }
+
+      const results: { page: number; buffer: Buffer; mimeType: string }[] = [];
+      const canvasFactory = new NodeCanvasFactory();
+
+      for (let idx = 0; idx < pagesToRender.length; idx++) {
+        const pageNum = pagesToRender[idx];
+        const page = await doc.getPage(pageNum);
         const viewport = page.getViewport({ scale });
         const canvas = createCanvas(viewport.width, viewport.height);
         const context = canvas.getContext('2d');
@@ -403,28 +499,53 @@ export class PdfEngineAdapter {
         // Render PDF page into canvas context
         await page.render({
           canvasContext: context as any,
-          viewport
+          viewport,
+          canvasFactory
         }).promise;
 
-        const rawBuffer = format === 'jpg'
-          ? await canvas.encode('jpeg')
-          : await canvas.encode('png');
-
-        let finalBuffer = rawBuffer;
+        let finalBuffer: Buffer;
+        let mimeType: string;
 
         if (format === 'jpg') {
-          finalBuffer = await sharp(rawBuffer).jpeg({ quality: 90 }).toBuffer();
+          // Encode directly from canvas to JPEG with target quality in a single native pass
+          finalBuffer = await canvas.encode('jpeg', quality);
+          mimeType = 'image/jpeg';
+        } else {
+          finalBuffer = await canvas.encode('png');
+          mimeType = 'image/png';
+        }
+
+        try {
+          page.cleanup();
+        } catch {
+          // ignore cleanup errors
         }
 
         results.push({
-          page: i,
+          page: pageNum,
           buffer: finalBuffer,
-          mimeType: format === 'jpg' ? 'image/jpeg' : 'image/png'
+          mimeType
         });
+
+        if (onPageProgress) {
+          await onPageProgress(idx + 1, pagesToRender.length);
+        }
+
+        // Micro-yield to event loop so Node.js can process I/O and healthcheck requests
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+
+      try {
+        doc.cleanup();
+      } catch {
+        // ignore cleanup errors
       }
 
       return results;
     } catch (err) {
+      if (err instanceof ValidationError) {
+        throw err;
+      }
       const errMsg = err instanceof Error ? err.message : String(err);
       logger.error('PDF to image rendering failed', { message: errMsg, stack: (err as any)?.stack });
       throw new AppError(`Failed to rasterize PDF pages to images: ${errMsg}`, 500);

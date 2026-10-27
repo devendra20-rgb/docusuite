@@ -183,55 +183,108 @@ export const processDocumentJob = async (job: Job<DocumentJobData>): Promise<voi
       });
     } else if (operation === 'pdf-to-images') {
       const buffer = await storageService.getFileBuffer(inputFiles[0].path);
-      const format = (parameters.format as 'jpg' | 'png') || 'png';
-      await job.updateProgress(40);
-      const images = await pdfEngine.pdfToImages(buffer, format);
-      await job.updateProgress(75);
+      const rawName = inputFiles[0]?.originalName || 'document.pdf';
+      const parsed = path.parse(rawName);
+      const baseName = (parsed.name || 'document').replace(/[^a-zA-Z0-9_-]/g, '_') || 'document';
+
+      const format = (parameters.format as 'jpg' | 'png') || 'jpg';
+      const ext = format === 'jpg' ? '.jpg' : '.png';
+      const dpi = parameters.dpi ? Number(parameters.dpi) : undefined;
+      const quality = parameters.quality ? Number(parameters.quality) : undefined;
+      const pages = parameters.pages as number[] | undefined;
+      const password = parameters.password ? String(parameters.password) : undefined;
+
+      await job.updateProgress(20);
+
+      const images = await pdfEngine.pdfToImages(buffer, format, {
+        dpi,
+        quality,
+        pages,
+        password,
+        onPageProgress: async (current, total) => {
+          const p = Math.min(80, Math.round(20 + (60 * current) / total));
+          await job.updateProgress(p);
+          await jobService.updateJobProgress(jobId, p, 'processing');
+        }
+      });
+
+      await job.updateProgress(85);
+      await jobService.updateJobProgress(jobId, 85, 'processing');
 
       if (images.length === 1) {
-        const ext = format === 'jpg' ? '.jpg' : '.png';
         const saved = await storageService.saveOutputFile(
-          `page-1${ext}`,
+          `${baseName}_page_${images[0].page}${ext}`,
           images[0].buffer,
           images[0].mimeType
         );
         outputFiles.push({
           fileId: saved.fileId,
           filename: saved.filename,
-          originalName: `page-1${ext}`,
+          originalName: `${baseName}_page_${images[0].page}${ext}`,
           mimeType: images[0].mimeType,
           size: saved.size,
           path: saved.storedPath,
           downloadUrl: `/api/jobs/${jobId}/download`
         });
       } else {
-        const zipName = `pdf-images-${jobId.substring(0, 8)}.zip`;
-        const zipPath = path.join(storageService['outputDir'], `${jobId}-${zipName}`);
-        const output = fsSync.createWriteStream(zipPath);
-        const archive = archiver('zip', { zlib: { level: 9 } });
-
-        archive.pipe(output);
-        const ext = format === 'jpg' ? '.jpg' : '.png';
+        // Multi-page output: save each image for individual gallery preview and single-page download
+        const individualFiles: any[] = [];
         for (const img of images) {
-          archive.append(img.buffer, { name: `page-${img.page}${ext}` });
+          const imgSaved = await storageService.saveOutputFile(
+            `${baseName}_page_${img.page}${ext}`,
+            img.buffer,
+            img.mimeType
+          );
+          individualFiles.push({
+            fileId: imgSaved.fileId,
+            filename: imgSaved.filename,
+            originalName: `${baseName}_page_${img.page}${ext}`,
+            mimeType: img.mimeType,
+            size: imgSaved.size,
+            path: imgSaved.storedPath,
+            downloadUrl: `/api/jobs/${jobId}/download/${imgSaved.fileId}`
+          });
         }
-        await archive.finalize();
 
-        await new Promise<void>((resolve, reject) => {
-          output.on('close', () => resolve());
-          output.on('error', reject);
+        // Package all pages into a consolidated ZIP archive
+        const zipBuffers: Buffer[] = [];
+        const archive = archiver('zip', { zlib: { level: 9 } });
+        archive.on('data', (chunk) => zipBuffers.push(chunk));
+
+        const archiveEndPromise = new Promise<void>((resolve, reject) => {
+          archive.on('end', () => resolve());
+          archive.on('error', reject);
         });
 
-        const stats = await fs.stat(zipPath);
+        for (const img of images) {
+          archive.append(img.buffer, { name: `${baseName}_page_${img.page}${ext}` });
+        }
+
+        await archive.finalize();
+        await archiveEndPromise;
+
+        const zipBuffer = Buffer.concat(zipBuffers);
+        const zipSaved = await storageService.saveOutputFile(
+          `${baseName}_images.zip`,
+          zipBuffer,
+          'application/zip'
+        );
+
+        // Primary download is the ZIP bundle
         outputFiles.push({
-          fileId: jobId,
-          filename: `${jobId}-${zipName}`,
-          originalName: zipName,
+          fileId: zipSaved.fileId,
+          filename: zipSaved.filename,
+          originalName: `${baseName}_images.zip`,
           mimeType: 'application/zip',
-          size: stats.size,
-          path: zipPath,
+          size: zipSaved.size,
+          path: zipSaved.storedPath,
           downloadUrl: `/api/jobs/${jobId}/download`
         });
+
+        // Add individual page image files so UI can render gallery thumbnails & per-page downloads
+        for (const ind of individualFiles) {
+          outputFiles.push(ind);
+        }
       }
     } else if (operation === 'images-to-pdf') {
       const images = await Promise.all(
