@@ -693,19 +693,120 @@ export class PdfEngineAdapter {
   }
 
   /**
+   * Extract-specific helper: parses page numbers and ranges (e.g. "1-4", "1, 3-5, 8", [1, 2])
+   */
+  public parseExtractPages(input: unknown): number[] {
+    if (input === null || input === undefined) {
+      return [];
+    }
+
+    if (Array.isArray(input)) {
+      const result: number[] = [];
+      for (const item of input) {
+        if (typeof item === 'number') {
+          if (isNaN(item) || !Number.isInteger(item) || item < 1) {
+            throw new ValidationError(`Invalid page number: ${item}`);
+          }
+          result.push(item);
+        } else if (typeof item === 'string') {
+          const sub = this.parseExtractPages(item);
+          result.push(...sub);
+        } else {
+          throw new ValidationError(`Invalid page entry: ${String(item)}`);
+        }
+      }
+      return result;
+    }
+
+    if (typeof input === 'number') {
+      if (isNaN(input) || !Number.isInteger(input) || input < 1) {
+        throw new ValidationError(`Invalid page number: ${input}`);
+      }
+      return [input];
+    }
+
+    if (typeof input === 'string') {
+      const trimmed = input.trim();
+      if (!trimmed) {
+        return [];
+      }
+
+      // If JSON array format (e.g. "[1, 2, 3]")
+      if (trimmed.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) {
+            return this.parseExtractPages(parsed);
+          }
+        } catch {
+          // fall through to comma-separated range parser
+        }
+      }
+
+      const parts = trimmed.split(',').map(s => s.trim()).filter(Boolean);
+      const result: number[] = [];
+
+      for (const part of parts) {
+        if (part.includes('-')) {
+          const rangeParts = part.split('-');
+          if (rangeParts.length !== 2) {
+            throw new ValidationError(`Invalid page range format: "${part}"`);
+          }
+          const [startStr, endStr] = rangeParts.map(s => s.trim());
+          const start = Number(startStr);
+          const end = Number(endStr);
+
+          if (
+            isNaN(start) ||
+            isNaN(end) ||
+            !Number.isInteger(start) ||
+            !Number.isInteger(end)
+          ) {
+            throw new ValidationError(`Invalid page range numbers: "${part}"`);
+          }
+          if (start < 1 || end < 1) {
+            throw new ValidationError(`Page numbers must be 1 or greater: "${part}"`);
+          }
+          if (start > end) {
+            throw new ValidationError(`Invalid page range: start page (${start}) cannot exceed end page (${end})`);
+          }
+
+          for (let i = start; i <= end; i++) {
+            result.push(i);
+          }
+        } else {
+          const num = Number(part);
+          if (isNaN(num) || !Number.isInteger(num)) {
+            throw new ValidationError(`Invalid page number: "${part}"`);
+          }
+          if (num < 1) {
+            throw new ValidationError(`Page numbers must be 1 or greater: "${part}"`);
+          }
+          result.push(num);
+        }
+      }
+
+      return result;
+    }
+
+    throw new ValidationError(`Invalid pages specification type: ${typeof input}`);
+  }
+
+  /**
    * 10. Extract PDF pages
    */
-  public async extract(pdfBuffer: Buffer, pagesToExtract: number[]): Promise<Buffer> {
+  public async extract(pdfBuffer: Buffer, pagesToExtract: number[] | string | (number | string)[]): Promise<Buffer> {
     const srcDoc = await this.loadPdf(pdfBuffer);
     const total = srcDoc.getPageCount();
 
-    if (!pagesToExtract || pagesToExtract.length === 0) {
+    const resolvedPages = this.parseExtractPages(pagesToExtract);
+    if (!resolvedPages || resolvedPages.length === 0) {
       throw new ValidationError('At least one page must be specified for extraction');
     }
 
     const indices: number[] = [];
-    for (const p of pagesToExtract) {
-      if (p < 1 || p > total) {
+    for (const p of resolvedPages) {
+      if (typeof p !== 'number' || isNaN(p) || !Number.isInteger(p) || p < 1 || p > total) {
         throw new ValidationError(`Cannot extract page ${p}: document has ${total} pages`);
       }
       indices.push(p - 1);

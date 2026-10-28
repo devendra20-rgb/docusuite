@@ -287,17 +287,14 @@ export class PdfToolsController {
   // 10. Extract PDF pages
   public extract = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      let pages: number[];
-      if (Array.isArray(req.body.pages)) {
-        pages = req.body.pages.map(Number);
-      } else if (typeof req.body.pages === 'string') {
-        try {
-          pages = JSON.parse(req.body.pages);
-        } catch {
-          pages = req.body.pages.split(',').map(Number);
-        }
-      } else {
-        throw new ValidationError('pages array is required (e.g. [1, 3])');
+      const rawPages = req.body.pages ?? req.body.ranges ?? req.body.pageRanges;
+      if (rawPages === undefined || rawPages === null || (typeof rawPages === 'string' && rawPages.trim() === '')) {
+        throw new ValidationError('pages array or range is required (e.g. "1-4" or [1, 3])');
+      }
+
+      const pages = pdfEngine.parseExtractPages(rawPages);
+      if (pages.length === 0) {
+        throw new ValidationError('At least one page must be specified for extraction');
       }
 
       const result = await this.dispatchOrProcess(req, 'pdf-extract', 'extract', { pages });

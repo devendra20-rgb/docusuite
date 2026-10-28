@@ -269,9 +269,49 @@ describe('PdfEngineAdapter (Phase 1 PDF Tools)', () => {
       expect(doc.getPageCount()).toBe(2);
     });
 
-    it('should throw ValidationError on invalid extraction list', async () => {
+    it('should extract pages using range string format (e.g. "1-2")', async () => {
+      const extracted = await pdfEngine.extract(samplePdf3Pages, '1-2');
+      const doc = await PDFDocument.load(extracted);
+      expect(doc.getPageCount()).toBe(2);
+    });
+
+    it('should extract pages using mixed range and comma string format (e.g. "1, 3")', async () => {
+      const extracted = await pdfEngine.extract(samplePdf3Pages, '1, 3');
+      const doc = await PDFDocument.load(extracted);
+      expect(doc.getPageCount()).toBe(2);
+    });
+
+    it('should extract pages from a 20-page PDF with range "1-4"', async () => {
+      const pdf20 = await createSyntheticPdf(20);
+      const extracted = await pdfEngine.extract(pdf20, '1-4');
+      const doc = await PDFDocument.load(extracted);
+      expect(doc.getPageCount()).toBe(4);
+    });
+
+    it('should extract pages using mixed array containing numbers and range strings (e.g. [1, "2-3"])', async () => {
+      const extracted = await pdfEngine.extract(samplePdf3Pages, [1, '2-3']);
+      const doc = await PDFDocument.load(extracted);
+      expect(doc.getPageCount()).toBe(3);
+    });
+
+    it('should throw ValidationError on empty extraction input', async () => {
       await expect(pdfEngine.extract(samplePdf3Pages, [])).rejects.toThrow(ValidationError);
+      await expect(pdfEngine.extract(samplePdf3Pages, '')).rejects.toThrow(ValidationError);
+    });
+
+    it('should throw ValidationError on out-of-bounds single page or range', async () => {
       await expect(pdfEngine.extract(samplePdf3Pages, [10])).rejects.toThrow(ValidationError);
+      await expect(pdfEngine.extract(samplePdf3Pages, '2-5')).rejects.toThrow(ValidationError);
+      await expect(pdfEngine.extract(samplePdf3Pages, '99')).rejects.toThrow(ValidationError);
+    });
+
+    it('should throw ValidationError on invalid inputs (non-numeric, inverted ranges, zero, floats)', async () => {
+      await expect(pdfEngine.extract(samplePdf3Pages, 'abc')).rejects.toThrow(ValidationError);
+      await expect(pdfEngine.extract(samplePdf3Pages, '1-foo')).rejects.toThrow(ValidationError);
+      await expect(pdfEngine.extract(samplePdf3Pages, '3-1')).rejects.toThrow(ValidationError);
+      await expect(pdfEngine.extract(samplePdf3Pages, '0')).rejects.toThrow(ValidationError);
+      await expect(pdfEngine.extract(samplePdf3Pages, '-2')).rejects.toThrow(ValidationError);
+      await expect(pdfEngine.extract(samplePdf3Pages, '1.5')).rejects.toThrow(ValidationError);
     });
   });
 

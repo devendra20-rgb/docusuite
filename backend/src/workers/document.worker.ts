@@ -323,8 +323,8 @@ export const processDocumentJob = async (job: Job<DocumentJobData>): Promise<voi
       });
     } else if (operation === 'pdf-extract') {
       const buffer = await storageService.getFileBuffer(inputFiles[0].path);
-      const pages = parameters.pages as number[];
-      const extracted = await pdfEngine.extract(buffer, pages);
+      const rawPages = (parameters.pages ?? parameters.ranges ?? parameters.pageRanges) as number[] | string;
+      const extracted = await pdfEngine.extract(buffer, rawPages);
       const saved = await storageService.saveOutputFile(`extracted-${inputFiles[0].originalName}`, extracted, 'application/pdf');
       outputFiles.push({
         fileId: saved.fileId,
