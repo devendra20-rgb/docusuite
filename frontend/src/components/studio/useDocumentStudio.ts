@@ -640,6 +640,10 @@ export function useDocumentStudio({ tool }: UseDocumentStudioProps) {
     // Required parameter check
     if (tool.params) {
       for (const p of tool.params) {
+        // Skip operations parameter for Organize PDF since it is compiled from visual page state
+        if ((tool.slug === 'organize' || tool.id === 'organize-pdf') && p.name === 'operations') {
+          continue;
+        }
         if (p.required && (parameters[p.name] === undefined || parameters[p.name] === '')) {
           setProcessingState({
             status: 'error',
@@ -684,8 +688,18 @@ export function useDocumentStudio({ tool }: UseDocumentStudioProps) {
       }
 
       if (activeDocument) {
-        // If tool is organize: compile operations array
-        if (tool.slug === 'organize') {
+        // If tool is organize: validate remaining pages and compile operations array
+        if (tool.slug === 'organize' || tool.id === 'organize-pdf') {
+          const remainingPages = activeDocument.pages.filter((p) => !p.isDeleted);
+          if (remainingPages.length === 0) {
+            setProcessingState({
+              status: 'error',
+              progress: 0,
+              message: '',
+              error: 'Cannot organize document: all pages have been excluded. Please restore at least one page.'
+            });
+            return;
+          }
           effectiveParams.operations = compileOrganizeOperations(activeDocument.pages);
         }
 

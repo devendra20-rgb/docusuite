@@ -234,15 +234,10 @@ export const ALL_TOOLS: ToolDefinition[] = [
     acceptMimeTypes: ['application/pdf'],
     minFiles: 1,
     maxFiles: 1,
-    params: [
-      {
-        name: 'operations',
-        label: 'Page Operations JSON',
-        type: 'text',
-        placeholder: '[{"pageNumber": 1, "rotation": 90}, {"pageNumber": 2, "deleted": true}]',
-        description: 'JSON array of transformations to apply per page.',
-        required: true
-      }
+    features: [
+      'Visual drag-and-drop page reordering',
+      'Individual and batch page rotation',
+      'Atomic page removal and exclusion'
     ]
   },
   {
