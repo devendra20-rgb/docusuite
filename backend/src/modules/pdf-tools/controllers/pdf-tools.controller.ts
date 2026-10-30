@@ -353,7 +353,58 @@ export class PdfToolsController {
       const left = Number(req.body.left) || 0;
       const right = Number(req.body.right) || 0;
 
-      const result = await this.dispatchOrProcess(req, 'pdf-crop', 'crop', { top, bottom, left, right });
+      let pages: number[] | undefined;
+      if (req.body.pages) {
+        if (Array.isArray(req.body.pages)) {
+          pages = req.body.pages.map(Number);
+        } else if (typeof req.body.pages === 'string') {
+          try {
+            const parsed = JSON.parse(req.body.pages);
+            if (Array.isArray(parsed)) pages = parsed.map(Number);
+          } catch {
+            pages = req.body.pages
+              .split(',')
+              .map((s: string) => Number(s.trim()))
+              .filter((n: number) => !isNaN(n) && n > 0);
+          }
+        }
+      }
+
+      let pageCrops: Record<number, any> | undefined;
+      if (req.body.pageCrops) {
+        if (typeof req.body.pageCrops === 'string') {
+          try {
+            pageCrops = JSON.parse(req.body.pageCrops);
+          } catch {
+            // ignore
+          }
+        } else if (typeof req.body.pageCrops === 'object') {
+          pageCrops = req.body.pageCrops;
+        }
+      }
+
+      let pageRotations: Record<number, number> | undefined;
+      if (req.body.pageRotations) {
+        if (typeof req.body.pageRotations === 'string') {
+          try {
+            pageRotations = JSON.parse(req.body.pageRotations);
+          } catch {
+            // ignore
+          }
+        } else if (typeof req.body.pageRotations === 'object') {
+          pageRotations = req.body.pageRotations;
+        }
+      }
+
+      const result = await this.dispatchOrProcess(req, 'pdf-crop', 'crop', {
+        top,
+        bottom,
+        left,
+        right,
+        ...(pages ? { pages } : {}),
+        ...(pageCrops ? { pageCrops } : {}),
+        ...(pageRotations ? { pageRotations } : {})
+      });
       res.status(200).json(result);
     } catch (err) {
       next(err);

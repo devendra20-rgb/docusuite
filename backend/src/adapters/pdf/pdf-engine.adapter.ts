@@ -56,6 +56,8 @@ export interface CropOptions {
   left?: number;
   right?: number;
   pages?: number[]; // 1-indexed, empty means all
+  pageCrops?: Record<number, { top: number; bottom: number; left: number; right: number }>;
+  pageRotations?: Record<number, number>;
 }
 
 export interface CompressOptions {
@@ -892,27 +894,105 @@ export class PdfEngineAdapter {
   public async crop(pdfBuffer: Buffer, options: CropOptions): Promise<Buffer> {
     const doc = await this.loadPdf(pdfBuffer);
     const total = doc.getPageCount();
-    const { top = 0, bottom = 0, left = 0, right = 0, pages } = options;
+    const { top = 0, bottom = 0, left = 0, right = 0, pages, pageCrops, pageRotations } = options;
 
-    const targetPages = pages && pages.length > 0
-      ? pages
-      : Array.from({ length: total }, (_, i) => i + 1);
+    if (pageCrops && Object.keys(pageCrops).length > 0) {
+      for (const [pageNumStr, margins] of Object.entries(pageCrops)) {
+        const pageNum = Number(pageNumStr);
+        if (isNaN(pageNum) || pageNum < 1 || pageNum > total) {
+          throw new ValidationError(`Invalid page number ${pageNumStr}`);
+        }
+        const page = doc.getPage(pageNum - 1);
+        const { width, height } = page.getSize();
+        const mTop = Number(margins.top) || 0;
+        const mBottom = Number(margins.bottom) || 0;
+        const mLeft = Number(margins.left) || 0;
+        const mRight = Number(margins.right) || 0;
 
-    for (const pageNum of targetPages) {
-      if (pageNum < 1 || pageNum > total) {
-        throw new ValidationError(`Invalid page number ${pageNum}`);
+        const extraRot = (pageRotations && pageRotations[pageNum]) || 0;
+        const rot = ((page.getRotation().angle || 0) + extraRot) % 360;
+        if (extraRot !== 0) {
+          page.setRotation(degrees(rot));
+        }
+        let finalLeft = mLeft;
+        let finalRight = mRight;
+        let finalTop = mTop;
+        let finalBottom = mBottom;
+
+        if (rot === 90) {
+          finalLeft = mTop;
+          finalRight = mBottom;
+          finalTop = mRight;
+          finalBottom = mLeft;
+        } else if (rot === 180) {
+          finalLeft = mRight;
+          finalRight = mLeft;
+          finalTop = mBottom;
+          finalBottom = mTop;
+        } else if (rot === 270) {
+          finalLeft = mBottom;
+          finalRight = mTop;
+          finalTop = mLeft;
+          finalBottom = mRight;
+        }
+
+        const newWidth = width - finalLeft - finalRight;
+        const newHeight = height - finalTop - finalBottom;
+
+        if (newWidth <= 0 || newHeight <= 0) {
+          throw new ValidationError(`Crop margins exceed page dimensions on page ${pageNum}`);
+        }
+
+        page.setCropBox(finalLeft, finalBottom, newWidth, newHeight);
       }
-      const page = doc.getPage(pageNum - 1);
-      const { width, height } = page.getSize();
+    } else {
+      const targetPages = pages && pages.length > 0
+        ? pages
+        : Array.from({ length: total }, (_, i) => i + 1);
 
-      const newWidth = width - left - right;
-      const newHeight = height - top - bottom;
+      for (const pageNum of targetPages) {
+        if (pageNum < 1 || pageNum > total) {
+          throw new ValidationError(`Invalid page number ${pageNum}`);
+        }
+        const page = doc.getPage(pageNum - 1);
+        const { width, height } = page.getSize();
 
-      if (newWidth <= 0 || newHeight <= 0) {
-        throw new ValidationError(`Crop margins exceed page dimensions on page ${pageNum}`);
+        const extraRot = (pageRotations && pageRotations[pageNum]) || 0;
+        const rot = ((page.getRotation().angle || 0) + extraRot) % 360;
+        if (extraRot !== 0) {
+          page.setRotation(degrees(rot));
+        }
+        let finalLeft = left;
+        let finalRight = right;
+        let finalTop = top;
+        let finalBottom = bottom;
+
+        if (rot === 90) {
+          finalLeft = top;
+          finalRight = bottom;
+          finalTop = right;
+          finalBottom = left;
+        } else if (rot === 180) {
+          finalLeft = right;
+          finalRight = left;
+          finalTop = bottom;
+          finalBottom = top;
+        } else if (rot === 270) {
+          finalLeft = bottom;
+          finalRight = top;
+          finalTop = left;
+          finalBottom = right;
+        }
+
+        const newWidth = width - finalLeft - finalRight;
+        const newHeight = height - finalTop - finalBottom;
+
+        if (newWidth <= 0 || newHeight <= 0) {
+          throw new ValidationError(`Crop margins exceed page dimensions on page ${pageNum}`);
+        }
+
+        page.setCropBox(finalLeft, finalBottom, newWidth, newHeight);
       }
-
-      page.setCropBox(left, bottom, newWidth, newHeight);
     }
 
     const bytes = await doc.save();

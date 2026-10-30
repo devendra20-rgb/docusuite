@@ -743,6 +743,32 @@ export function useDocumentStudio({ tool }: UseDocumentStudioProps) {
         }
 
         // If tool is extract: compile selected pages
+        // If tool is crop: compile scope, selected pages, and studio rotations
+        if (tool.slug === 'crop' || tool.id === 'crop-pdf') {
+          const scope = effectiveParams.scope || 'all';
+          if (scope === 'current') {
+            effectiveParams.pages = [activePageIndex];
+          } else if (scope === 'selected') {
+            const selectedNums = activeDocument.pages
+              .filter((p) => selectedPageIds.has(p.id))
+              .map((p) => p.originalPageNumber);
+            effectiveParams.pages = selectedNums.length > 0 ? selectedNums : [activePageIndex];
+          }
+          delete effectiveParams.scope;
+
+          const pageRotationsMap: Record<number, number> = {};
+          let hasRot = false;
+          activeDocument.pages.forEach((p) => {
+            if (p.rotation !== 0) {
+              pageRotationsMap[p.originalPageNumber] = p.rotation;
+              hasRot = true;
+            }
+          });
+          if (hasRot) {
+            effectiveParams.pageRotations = pageRotationsMap;
+          }
+        }
+
         if (tool.slug === 'extract') {
           const selectedNums = activeDocument.pages
             .filter((p) => selectedPageIds.has(p.id))

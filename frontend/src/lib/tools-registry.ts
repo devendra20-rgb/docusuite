@@ -254,7 +254,18 @@ export const ALL_TOOLS: ToolDefinition[] = [
     minFiles: 1,
     maxFiles: 1,
     params: [
-      { name: 'top', label: 'Top Margin (pt)', type: 'number', defaultValue: 20, min: 0, max: 200 },
+      {
+        name: 'scope',
+        label: 'Apply Crop To',
+        type: 'select',
+        defaultValue: 'all',
+        options: [
+          { label: 'All Pages', value: 'all' },
+          { label: 'Current Page Only', value: 'current' },
+          { label: 'Selected Pages', value: 'selected' }
+        ]
+      },
+      { name: 'top', label: 'Top Margin (pt)', type: 'number', defaultValue: 20, min: 0, max: 500 },
       { name: 'bottom', label: 'Bottom Margin (pt)', type: 'number', defaultValue: 20, min: 0, max: 200 },
       { name: 'left', label: 'Left Margin (pt)', type: 'number', defaultValue: 20, min: 0, max: 200 },
       { name: 'right', label: 'Right Margin (pt)', type: 'number', defaultValue: 20, min: 0, max: 200 }

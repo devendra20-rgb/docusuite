@@ -8,6 +8,7 @@ import { SplitWorkspace } from '@/components/studio/SplitWorkspace';
 import { CompressWorkspace } from '@/components/studio/CompressWorkspace';
 import { RotateWorkspace } from '@/components/studio/RotateWorkspace';
 import { PdfToJpgWorkspace } from '@/components/studio/PdfToJpgWorkspace';
+import { CropWorkspace } from '@/components/studio/CropWorkspace';
 
 export interface ToolWorkspaceProps {
   tool: ToolDefinition;
@@ -15,10 +16,13 @@ export interface ToolWorkspaceProps {
 
 /**
  * ToolWorkspace delegates to the interactive Document Studio.
- * Dedicated full-screen workspaces are routed for Merge PDF, Split PDF, Compress PDF, Rotate PDF, and PDF to JPG,
+ * Dedicated full-screen workspaces are routed for Merge PDF, Split PDF, Compress PDF, Rotate PDF, PDF to JPG, and Crop PDF,
  * while other tools use the standard studio workspace.
  */
 export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({ tool }) => {
+  if (tool.slug === 'crop') {
+    return <CropWorkspace tool={tool} />;
+  }
   if (tool.slug === 'merge') {
     return <MergeWorkspace tool={tool} />;
   }

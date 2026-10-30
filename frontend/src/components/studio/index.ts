@@ -10,3 +10,4 @@ export * from './StudioWorkspace';
 export * from './MergeWorkspace';
 export * from './SplitWorkspace';
 export * from './CompressWorkspace';
+export * from './CropWorkspace';
