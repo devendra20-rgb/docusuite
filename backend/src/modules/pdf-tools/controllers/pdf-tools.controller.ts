@@ -499,15 +499,78 @@ export class PdfToolsController {
   public addWatermark = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const text = req.body.text as string | undefined;
-      const opacity = Number(req.body.opacity) || 0.3;
-      const rotationDegrees = Number(req.body.rotationDegrees) || 45;
-      const fontSize = Number(req.body.fontSize) || 50;
+      const opacity = req.body.opacity !== undefined && req.body.opacity !== '' ? Number(req.body.opacity) : 0.3;
+      const rotationDegrees = req.body.rotationDegrees !== undefined && req.body.rotationDegrees !== '' ? Number(req.body.rotationDegrees) : 45;
+      const fontSize = req.body.fontSize !== undefined && req.body.fontSize !== '' ? Number(req.body.fontSize) : 48;
+      const font = req.body.font as string | undefined;
+      const position = req.body.position as string | undefined;
+      const style = req.body.style as string | undefined;
+      const background = req.body.background as string | undefined;
+      const customXRatio = req.body.customXRatio !== undefined && req.body.customXRatio !== '' ? Number(req.body.customXRatio) : undefined;
+      const customYRatio = req.body.customYRatio !== undefined && req.body.customYRatio !== '' ? Number(req.body.customYRatio) : undefined;
+      const imageWidth = req.body.imageWidth !== undefined && req.body.imageWidth !== '' ? Number(req.body.imageWidth) : undefined;
+      const imageHeight = req.body.imageHeight !== undefined && req.body.imageHeight !== '' ? Number(req.body.imageHeight) : undefined;
+      const isBold = req.body.isBold !== undefined ? (req.body.isBold === 'true' || req.body.isBold === true) : undefined;
+      const isItalic = req.body.isItalic !== undefined ? (req.body.isItalic === 'true' || req.body.isItalic === true) : undefined;
+      const imageBase64 = req.body.imageBase64 as string | undefined;
+      const imageMimeType = req.body.imageMimeType as string | undefined;
 
+      let color = req.body.color;
+      if (typeof color === 'string') {
+        try {
+          if (color.startsWith('{')) {
+            color = JSON.parse(color);
+          }
+        } catch {
+          // keep as string (e.g. hex #E11D48)
+        }
+      }
+
+      let pages: number[] | undefined;
+      if (req.body.pages) {
+        if (typeof req.body.pages === 'string') {
+          try {
+            pages = JSON.parse(req.body.pages);
+          } catch {
+            pages = req.body.pages.split(',').map((p: string) => Number(p.trim())).filter((n: number) => !isNaN(n));
+          }
+        } else if (Array.isArray(req.body.pages)) {
+          pages = req.body.pages.map(Number).filter((n: number) => !isNaN(n));
+        }
+      }
+
+      let pageRotations: Record<number, number> | undefined;
+      if (req.body.pageRotations) {
+        if (typeof req.body.pageRotations === 'string') {
+          try {
+            pageRotations = JSON.parse(req.body.pageRotations);
+          } catch {
+            pageRotations = undefined;
+          }
+        } else if (typeof req.body.pageRotations === 'object') {
+          pageRotations = req.body.pageRotations;
+        }
+      }
       const result = await this.dispatchOrProcess(req, 'pdf-watermark', 'watermark', {
-        text,
+        ...(text !== undefined ? { text } : {}),
         opacity,
         rotationDegrees,
-        fontSize
+        fontSize,
+        ...(font ? { font } : {}),
+        ...(color !== undefined ? { color } : {}),
+        ...(position ? { position } : {}),
+        ...(style ? { style } : {}),
+        ...(background ? { background } : {}),
+        ...(customXRatio !== undefined ? { customXRatio } : {}),
+        ...(customYRatio !== undefined ? { customYRatio } : {}),
+        ...(pages !== undefined ? { pages } : {}),
+        ...(pageRotations !== undefined ? { pageRotations } : {}),
+        ...(imageWidth !== undefined ? { imageWidth } : {}),
+        ...(imageHeight !== undefined ? { imageHeight } : {}),
+        ...(isBold !== undefined ? { isBold } : {}),
+        ...(isItalic !== undefined ? { isItalic } : {}),
+        ...(imageBase64 ? { imageBase64 } : {}),
+        ...(imageMimeType ? { imageMimeType } : {})
       });
       res.status(200).json(result);
     } catch (err) {

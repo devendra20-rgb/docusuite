@@ -424,6 +424,51 @@ describe('PdfEngineAdapter (Phase 1 PDF Tools)', () => {
       expect(doc.getPageCount()).toBe(2);
     });
 
+    it('should support custom styles, fonts, colors, and backgrounds', async () => {
+      const watermarked = await pdfEngine.addWatermark(samplePdf3Pages, {
+        text: 'DRAFT COPY',
+        font: 'times',
+        isBold: true,
+        fontSize: 36,
+        color: '#E11D48',
+        background: 'white',
+        style: 'horizontal',
+        position: 'top-center',
+        opacity: 0.5,
+        pages: [1, 3]
+      });
+      expect(watermarked).toBeInstanceOf(Buffer);
+      const doc = await PDFDocument.load(watermarked);
+      expect(doc.getPageCount()).toBe(3);
+    });
+
+    it('should support tiled watermark style', async () => {
+      const watermarked = await pdfEngine.addWatermark(samplePdf2Pages, {
+        text: 'SAMPLE',
+        style: 'tiled',
+        opacity: 0.2,
+        rotationDegrees: 30
+      });
+      expect(watermarked).toBeInstanceOf(Buffer);
+      const doc = await PDFDocument.load(watermarked);
+      expect(doc.getPageCount()).toBe(2);
+    });
+
+    it('should correctly handle rotated and cropped pages with custom ratio positions', async () => {
+      const watermarked = await pdfEngine.addWatermark(samplePdf3Pages, {
+        text: 'VERIFIED',
+        position: 'custom',
+        customXRatio: 0.7,
+        customYRatio: 0.3,
+        pageRotations: { 2: 90 },
+        opacity: 0.4
+      });
+      expect(watermarked).toBeInstanceOf(Buffer);
+      const doc = await PDFDocument.load(watermarked);
+      expect(doc.getPageCount()).toBe(3);
+      expect(doc.getPage(1).getRotation().angle).toBe(90);
+    });
+
     it('should throw ValidationError when neither text nor image is given', async () => {
       await expect(pdfEngine.addWatermark(samplePdf2Pages, {})).rejects.toThrow(ValidationError);
     });

@@ -391,12 +391,31 @@ export const processDocumentJob = async (job: Job<DocumentJobData>): Promise<voi
       });
     } else if (operation === 'pdf-watermark') {
       const buffer = await storageService.getFileBuffer(inputFiles[0].path);
-      const watermarked = await pdfEngine.addWatermark(buffer, parameters as any);
-      const saved = await storageService.saveOutputFile(`watermarked-${inputFiles[0].originalName}`, watermarked, 'application/pdf');
+      const pdfFile = inputFiles.find(f => f.mimeType === 'application/pdf') || inputFiles[0];
+      const pdfBuffer = await storageService.getFileBuffer(pdfFile.path);
+
+      let imageBuffer: Buffer | undefined;
+      let imageMimeType: string | undefined;
+
+      const imgFile = inputFiles.find(f => f.mimeType && f.mimeType.startsWith('image/'));
+      if (imgFile) {
+        imageBuffer = await storageService.getFileBuffer(imgFile.path);
+        imageMimeType = imgFile.mimeType;
+      } else if (parameters && (parameters as any).imageBase64) {
+        const rawB64 = String((parameters as any).imageBase64).replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '');
+        imageBuffer = Buffer.from(rawB64, 'base64');
+        imageMimeType = (parameters as any).imageMimeType || 'image/png';
+      }
+
+      const watermarked = await pdfEngine.addWatermark(pdfBuffer, {
+        ...(parameters as any),
+        ...(imageBuffer ? { imageBuffer, imageMimeType } : {})
+      });
+      const saved = await storageService.saveOutputFile(`watermarked-${pdfFile.originalName}`, watermarked, 'application/pdf');
       outputFiles.push({
         fileId: saved.fileId,
         filename: saved.filename,
-        originalName: `watermarked-${inputFiles[0].originalName}`,
+        originalName: `watermarked-${pdfFile.originalName}`,
         mimeType: 'application/pdf',
         size: saved.size,
         path: saved.storedPath,

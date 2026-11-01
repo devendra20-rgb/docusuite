@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import { getToolBySlug, ALL_TOOLS } from '@/lib/tools-registry';
@@ -24,7 +24,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function PdfToolPage({
+async function PdfToolContent({
   params
 }: {
   params: Promise<{ slug: string }>;
@@ -37,4 +37,22 @@ export default async function PdfToolPage({
   }
 
   return <ToolWorkspace tool={tool} />;
+}
+
+export default function PdfToolPage({
+  params
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <PdfToolContent params={params} />
+    </Suspense>
+  );
 }

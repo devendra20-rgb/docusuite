@@ -376,7 +376,7 @@ export const ALL_TOOLS: ToolDefinition[] = [
     slug: 'add-watermark',
     title: 'Add Watermark',
     shortDesc: 'Stamp custom confidential or draft watermarks',
-    description: 'Overlay custom text across every page with adjustable transparency and angle.',
+    description: 'Overlay custom text, logos, or stamps across pages with interactive preview, custom positioning, typography, and styles.',
     category: 'Security & Protection',
     iconName: 'Stamp',
     endpoint: '/tools/pdf/add-watermark',

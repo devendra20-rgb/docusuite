@@ -12,3 +12,4 @@ export * from './SplitWorkspace';
 export * from './CompressWorkspace';
 export * from './CropWorkspace';
 export * from './PageNumbersWorkspace';
+export * from './WatermarkWorkspace';

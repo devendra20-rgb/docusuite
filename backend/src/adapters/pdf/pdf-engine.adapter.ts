@@ -40,9 +40,17 @@ export interface WatermarkOptions {
   startNumber?: number;
   skipFirst?: boolean;
   pages?: number[]; // 1-indexed
-  font?: 'helvetica' | 'helvetica-bold' | 'times' | 'courier';
+  font?: 'helvetica' | 'helvetica-bold' | 'times' | 'courier' | string;
   color?: string | { r: number; g: number; b: number };
-  background?: 'none' | 'white' | 'dark' | 'transparent';
+  background?: 'none' | 'white' | 'dark' | 'transparent' | 'highlight';
+  position?: 'center' | 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right' | 'custom';
+  style?: 'diagonal' | 'horizontal' | 'tiled';
+  customXRatio?: number;
+  customYRatio?: number;
+  imageWidth?: number;
+  imageHeight?: number;
+  isBold?: boolean;
+  isItalic?: boolean;
   margin?: number;
   marginTop?: number;
   marginBottom?: number;
@@ -50,7 +58,6 @@ export interface WatermarkOptions {
   marginRight?: number;
   pageRotations?: Record<number, number>;
   allPages?: boolean;
-  pages?: number[]; // 1-indexed
 }
 
 export interface PageNumberOptions {
@@ -61,9 +68,9 @@ export interface PageNumberOptions {
   startNumber?: number;
   skipFirst?: boolean;
   pages?: number[]; // 1-indexed
-  font?: 'helvetica' | 'helvetica-bold' | 'times' | 'courier';
+  font?: 'helvetica' | 'helvetica-bold' | 'times' | 'courier' | string;
   color?: string | { r: number; g: number; b: number };
-  background?: 'none' | 'white' | 'dark' | 'transparent';
+  background?: 'none' | 'white' | 'dark' | 'transparent' | 'highlight';
   margin?: number;
   marginTop?: number;
   marginBottom?: number;
@@ -1034,6 +1041,29 @@ export class PdfEngineAdapter {
       case 'helvetica-bold':
         font = await doc.embedFont(StandardFonts.HelveticaBold);
         break;
+      /*
+        const fName = (requestedFont || '').toLowerCase();
+      const bold = isBold ?? (fName.includes('bold') || requestedFont === undefined);
+      const italic = isItalic ?? (fName.includes('italic') || fName.includes('oblique'));
+
+      if (fName.includes('times')) {
+        if (bold && italic) font = await doc.embedFont(StandardFonts.TimesRomanBoldItalic);
+        else if (bold) font = await doc.embedFont(StandardFonts.TimesRomanBold);
+        else if (italic) font = await doc.embedFont(StandardFonts.TimesRomanItalic);
+        else font = await doc.embedFont(StandardFonts.TimesRoman);
+      } else if (fName.includes('courier')) {
+        if (bold && italic) font = await doc.embedFont(StandardFonts.CourierBoldOblique);
+        else if (bold) font = await doc.embedFont(StandardFonts.CourierBold);
+        else if (italic) font = await doc.embedFont(StandardFonts.CourierOblique);
+        else font = await doc.embedFont(StandardFonts.Courier);
+      } else {
+        if (bold && italic) font = await doc.embedFont(StandardFonts.HelveticaBoldOblique);
+        else if (bold) font = await doc.embedFont(StandardFonts.HelveticaBold);
+        else if (italic) font = await doc.embedFont(StandardFonts.HelveticaOblique);
+        else font = await doc.embedFont(StandardFonts.Helvetica);
+      }
+        break;
+      */
       case 'times':
         font = await doc.embedFont(StandardFonts.TimesRoman);
         break;
@@ -1238,6 +1268,17 @@ export class PdfEngineAdapter {
       rotationDegrees = 45,
       fontSize = 50,
       color = { r: 0.5, g: 0.5, b: 0.5 },
+      font: requestedFont,
+      background = 'none',
+      position = 'center',
+      style = 'diagonal',
+      customXRatio = 0.5,
+      customYRatio = 0.5,
+      pageRotations,
+      imageWidth,
+      imageHeight,
+      isBold,
+      isItalic,
       pages
     } = options;
 
@@ -1253,8 +1294,245 @@ export class PdfEngineAdapter {
     let embeddedImg;
 
     if (text) {
-      font = await doc.embedFont(StandardFonts.HelveticaBold);
+      const fName = (requestedFont || '').toLowerCase();
+      const bold = isBold ?? (fName.includes('bold') || requestedFont === undefined);
+      const italic = isItalic ?? (fName.includes('italic') || fName.includes('oblique'));
+
+      if (fName.includes('times')) {
+        if (bold && italic) font = await doc.embedFont(StandardFonts.TimesRomanBoldItalic);
+        else if (bold) font = await doc.embedFont(StandardFonts.TimesRomanBold);
+        else if (italic) font = await doc.embedFont(StandardFonts.TimesRomanItalic);
+        else font = await doc.embedFont(StandardFonts.TimesRoman);
+      } else if (fName.includes('courier')) {
+        if (bold && italic) font = await doc.embedFont(StandardFonts.CourierBoldOblique);
+        else if (bold) font = await doc.embedFont(StandardFonts.CourierBold);
+        else if (italic) font = await doc.embedFont(StandardFonts.CourierOblique);
+        else font = await doc.embedFont(StandardFonts.Courier);
+      } else {
+        if (bold && italic) font = await doc.embedFont(StandardFonts.HelveticaBoldOblique);
+        else if (bold) font = await doc.embedFont(StandardFonts.HelveticaBold);
+        else if (italic) font = await doc.embedFont(StandardFonts.HelveticaOblique);
+        else font = await doc.embedFont(StandardFonts.Helvetica);
+      }
     } else if (imageBuffer) {
+      try {
+        if (imageMimeType === 'image/png' || (imageBuffer.length > 4 && imageBuffer[0] === 0x89 && imageBuffer[1] === 0x50)) {
+          embeddedImg = await doc.embedPng(imageBuffer);
+        } else {
+          embeddedImg = await doc.embedJpg(imageBuffer);
+        }
+      } catch {
+        try {
+          embeddedImg = await doc.embedJpg(imageBuffer);
+        } catch {
+          embeddedImg = await doc.embedPng(imageBuffer);
+        }
+      }
+    }
+
+    const parseWatermarkColor = (c?: string | { r: number; g: number; b: number }, defaultColor = rgb(0.5, 0.5, 0.5)) => {
+      if (!c) return defaultColor;
+      if (typeof c === 'string') {
+        let hex = c.trim();
+        if (hex.startsWith('#')) hex = hex.slice(1);
+        if (hex.length === 3) {
+          hex = hex.split('').map(ch => ch + ch).join('');
+        }
+        if (hex.length === 6) {
+          const r = parseInt(hex.substring(0, 2), 16) / 255;
+          const g = parseInt(hex.substring(2, 4), 16) / 255;
+          const b = parseInt(hex.substring(4, 6), 16) / 255;
+          return rgb(isNaN(r) ? 0.5 : r, isNaN(g) ? 0.5 : g, isNaN(b) ? 0.5 : b);
+        }
+        return defaultColor;
+      }
+      let { r, g, b } = c;
+      if (r > 1 || g > 1 || b > 1) {
+        r /= 255;
+        g /= 255;
+        b /= 255;
+      }
+      return rgb(Math.max(0, Math.min(1, r)), Math.max(0, Math.min(1, g)), Math.max(0, Math.min(1, b)));
+    };
+
+    const textColor = parseWatermarkColor(color);
+
+    let effectiveRotation = rotationDegrees;
+    if (style === 'horizontal') {
+      effectiveRotation = 0;
+    } else if (style === 'diagonal' && rotationDegrees === 0) {
+      effectiveRotation = 45;
+    }
+
+    const getWatermarkTransforms = (rot: number, bX: number, bY: number, bW: number, bH: number, xVal: number, yVal: number) => {
+      rot = (rot % 360 + 360) % 360;
+      if (rot === 90) {
+        return { px: bX + bW - yVal, py: bY + xVal, angle: 90 };
+      } else if (rot === 180) {
+        return { px: bX + bW - xVal, py: bY + bH - yVal, angle: 180 };
+      } else if (rot === 270) {
+        return { px: bX + yVal, py: bY + bH - xVal, angle: 270 };
+      } else {
+        return { px: bX + xVal, py: bY + yVal, angle: 0 };
+      }
+    };
+
+    for (const pageNum of targetPages) {
+      if (pageNum < 1 || pageNum > total) continue;
+      const page = doc.getPage(pageNum - 1);
+
+      const cropBox = page.getCropBox();
+      const boxX = cropBox.x;
+      const boxY = cropBox.y;
+      const boxW = cropBox.width;
+      const boxH = cropBox.height;
+
+      const manualRotation = pageRotations?.[pageNum] ?? 0;
+      const pageRotation = ((page.getRotation().angle || 0) + manualRotation) % 360;
+      const rot = (pageRotation % 360 + 360) % 360;
+
+      if (manualRotation !== 0) {
+        page.setRotation(degrees(rot));
+      }
+
+      const isSideways = (rot === 90 || rot === 270);
+      const viewW = isSideways ? boxH : boxW;
+      const viewH = isSideways ? boxW : boxH;
+
+      const centers: Array<{ vcx: number; vcy: number }> = [];
+      if (style === 'tiled') {
+        const cols = 3;
+        const rows = 3;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            centers.push({
+              vcx: ((c + 0.5) / cols) * viewW,
+              vcy: ((r + 0.5) / rows) * viewH
+            });
+          }
+        }
+      } else {
+        let vcx = viewW / 2;
+        let vcy = viewH / 2;
+        if (position === 'top-left') {
+          vcx = viewW * 0.25;
+          vcy = viewH * 0.8;
+        } else if (position === 'top-center') {
+          vcx = viewW * 0.5;
+          vcy = viewH * 0.85;
+        } else if (position === 'top-right') {
+          vcx = viewW * 0.75;
+          vcy = viewH * 0.8;
+        } else if (position === 'bottom-left') {
+          vcx = viewW * 0.25;
+          vcy = viewH * 0.2;
+        } else if (position === 'bottom-center') {
+          vcx = viewW * 0.5;
+          vcy = viewH * 0.15;
+        } else if (position === 'bottom-right') {
+          vcx = viewW * 0.75;
+          vcy = viewH * 0.2;
+        } else if (position === 'custom') {
+          const rx = Math.max(0.05, Math.min(0.95, customXRatio));
+          const ry = Math.max(0.05, Math.min(0.95, customYRatio));
+          vcx = rx * viewW;
+          vcy = (1 - ry) * viewH;
+        }
+        centers.push({ vcx, vcy });
+      }
+
+      const theta = (effectiveRotation * Math.PI) / 180;
+
+      if (text && font) {
+        const textWidth = font.widthOfTextAtSize(text, fontSize);
+        const textHeight = font.heightAtSize(fontSize);
+        const cu = textWidth / 2;
+        const cv = textHeight / 2;
+
+        for (const { vcx, vcy } of centers) {
+          if (background === 'white' || background === 'dark' || background === 'highlight') {
+            const padX = Math.max(8, Math.round(fontSize * 0.4));
+            const padY = Math.max(5, Math.round(fontSize * 0.25));
+            const rectW = textWidth + padX * 2;
+            const rectH = textHeight + padY * 2;
+            const rectCu = rectW / 2;
+            const rectCv = rectH / 2;
+
+            const vRectAnchorX = vcx - (rectCu * Math.cos(theta) - rectCv * Math.sin(theta));
+            const vRectAnchorY = vcy - (rectCu * Math.sin(theta) + rectCv * Math.cos(theta));
+            const rectT = getWatermarkTransforms(rot, boxX, boxY, boxW, boxH, vRectAnchorX, vRectAnchorY);
+
+            const bgColor = background === 'dark'
+              ? rgb(0.12, 0.14, 0.18)
+              : background === 'highlight'
+              ? rgb(1, 0.96, 0.35)
+              : rgb(1, 1, 1);
+            const bgBorderColor = background === 'dark'
+              ? rgb(0.25, 0.28, 0.35)
+              : background === 'highlight'
+              ? rgb(0.9, 0.8, 0.2)
+              : rgb(0.85, 0.85, 0.85);
+
+            page.drawRectangle({
+              x: rectT.px,
+              y: rectT.py,
+              width: rectW,
+              height: rectH,
+              color: bgColor,
+              borderColor: bgBorderColor,
+              borderWidth: 0.75,
+              opacity: Math.min(1, opacity + 0.15),
+              rotate: degrees((effectiveRotation + rot) % 360)
+            });
+          }
+
+          const vAnchorX = vcx - (cu * Math.cos(theta) - cv * Math.sin(theta));
+          const vAnchorY = vcy - (cu * Math.sin(theta) + cv * Math.cos(theta));
+          const textT = getWatermarkTransforms(rot, boxX, boxY, boxW, boxH, vAnchorX, vAnchorY);
+
+          page.drawText(text, {
+            x: textT.px,
+            y: textT.py,
+            size: fontSize,
+            font,
+            color: textColor,
+            opacity,
+            rotate: degrees((effectiveRotation + rot) % 360)
+          });
+        }
+      } else if (embeddedImg) {
+        let targetW = imageWidth || Math.min(viewW * 0.45, embeddedImg.width * 0.5);
+        if (style === 'tiled') {
+          targetW = Math.min(targetW, viewW * 0.25);
+        }
+        const scale = targetW / embeddedImg.width;
+        const targetH = imageHeight || (embeddedImg.height * scale);
+        const cu = targetW / 2;
+        const cv = targetH / 2;
+
+        for (const { vcx, vcy } of centers) {
+          const vAnchorX = vcx - (cu * Math.cos(theta) - cv * Math.sin(theta));
+          const vAnchorY = vcy - (cu * Math.sin(theta) + cv * Math.cos(theta));
+          const imgT = getWatermarkTransforms(rot, boxX, boxY, boxW, boxH, vAnchorX, vAnchorY);
+
+          page.drawImage(embeddedImg, {
+            x: imgT.px,
+            y: imgT.py,
+            width: targetW,
+            height: targetH,
+            opacity,
+            rotate: degrees((effectiveRotation + rot) % 360)
+          });
+        }
+      }
+    }
+
+    const bytes = await doc.save();
+    return Buffer.from(bytes);
+
+  }
+
+  /* REMOVED_OLD_WATERMARK
       if (imageMimeType === 'image/png') {
         embeddedImg = await doc.embedPng(imageBuffer);
       } else {
@@ -1281,6 +1559,7 @@ export class PdfEngineAdapter {
         });
       } else if (embeddedImg) {
         const dims = embeddedImg.scale(0.5);
+        // dims
         page.drawImage(embeddedImg, {
           x: (width - dims.width) / 2,
           y: (height - dims.height) / 2,
@@ -1297,7 +1576,7 @@ export class PdfEngineAdapter {
   }
 
   /**
-   * 16. Password protect PDF
+   * 16. Password protect PDF (Cleaned)
    */
   public async protect(
     pdfBuffer: Buffer,

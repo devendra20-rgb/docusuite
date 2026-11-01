@@ -93,6 +93,7 @@ export const PdfOutputViewer: React.FC<{
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState<number>(1.0);
   const [fitWidth, setFitWidth] = useState<boolean>(true);
+  const fullUrl = getFullApiUrl(downloadUrl);
 
   // Load PDF document from binary data
   useEffect(() => {
@@ -102,7 +103,7 @@ export const PdfOutputViewer: React.FC<{
 
     (async () => {
       try {
-        const res = await fetch(downloadUrl);
+        const res = await fetch(fullUrl);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const buf = await res.arrayBuffer();
         if (isCancelled) return;
@@ -183,7 +184,7 @@ export const PdfOutputViewer: React.FC<{
       <div className="w-full flex flex-col items-center space-y-4">
         <div className="w-full max-w-3xl h-[600px] rounded-xl overflow-hidden border border-slate-200 bg-white shadow-md relative">
           <iframe
-            src={`${downloadUrl}${downloadUrl.includes('?') ? '&' : '?'}preview=true#toolbar=0&navpanes=0&view=FitH`}
+            src={`${fullUrl}${fullUrl.includes('?') ? '&' : '?'}preview=true#toolbar=0&navpanes=0&view=FitH`}
             title="PDF Preview Fallback"
             className="w-full h-full border-0 bg-white"
           />
@@ -192,7 +193,7 @@ export const PdfOutputViewer: React.FC<{
           <span>{filename}</span>
           {size && <span>• {formatSize(size)}</span>}
           <a
-            href={downloadUrl}
+            href={fullUrl}
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center space-x-1 text-emerald-600 hover:text-emerald-700 hover:underline"
@@ -282,7 +283,7 @@ export const PdfOutputViewer: React.FC<{
 
           {/* Open Fullscreen Link */}
           <a
-            href={downloadUrl}
+            href={fullUrl}
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-medium text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-colors"
