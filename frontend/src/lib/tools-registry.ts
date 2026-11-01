@@ -318,7 +318,56 @@ export const ALL_TOOLS: ToolDefinition[] = [
         type: 'number',
         defaultValue: 10,
         min: 8,
-        max: 24
+        max: 28
+      },
+      {
+        name: 'font',
+        label: 'Font Family',
+        type: 'select',
+        defaultValue: 'helvetica',
+        options: [
+          { label: 'Helvetica', value: 'helvetica' },
+          { label: 'Helvetica Bold', value: 'helvetica-bold' },
+          { label: 'Times Roman', value: 'times' },
+          { label: 'Courier', value: 'courier' }
+        ]
+      },
+      {
+        name: 'background',
+        label: 'Background Style',
+        type: 'select',
+        defaultValue: 'none',
+        options: [
+          { label: 'None (Transparent)', value: 'none' },
+          { label: 'White Badge', value: 'white' },
+          { label: 'Dark Badge', value: 'dark' }
+        ]
+      },
+      {
+        name: 'margin',
+        label: 'Margin (pt)',
+        type: 'number',
+        defaultValue: 20,
+        min: 5,
+        max: 100
+      },
+      {
+        name: 'skipFirst',
+        label: 'Skip Cover Page',
+        type: 'select',
+        defaultValue: 'false',
+        options: [
+          { label: 'No', value: 'false' },
+          { label: 'Yes', value: 'true' }
+        ]
+      },
+      {
+        name: 'startNumber',
+        label: 'Starting Number',
+        type: 'number',
+        defaultValue: 1,
+        min: 0,
+        max: 9999
       }
     ]
   },

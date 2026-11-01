@@ -9,6 +9,7 @@ import { CompressWorkspace } from '@/components/studio/CompressWorkspace';
 import { RotateWorkspace } from '@/components/studio/RotateWorkspace';
 import { PdfToJpgWorkspace } from '@/components/studio/PdfToJpgWorkspace';
 import { CropWorkspace } from '@/components/studio/CropWorkspace';
+import { PageNumbersWorkspace } from '@/components/studio/PageNumbersWorkspace';
 
 export interface ToolWorkspaceProps {
   tool: ToolDefinition;
@@ -16,10 +17,13 @@ export interface ToolWorkspaceProps {
 
 /**
  * ToolWorkspace delegates to the interactive Document Studio.
- * Dedicated full-screen workspaces are routed for Merge PDF, Split PDF, Compress PDF, Rotate PDF, PDF to JPG, and Crop PDF,
+ * Dedicated full-screen workspaces are routed for Merge PDF, Split PDF, Compress PDF, Rotate PDF, PDF to JPG, Crop PDF, and Add Page Numbers,
  * while other tools use the standard studio workspace.
  */
 export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({ tool }) => {
+  if (tool.slug === 'add-page-numbers') {
+    return <PageNumbersWorkspace tool={tool} />;
+  }
   if (tool.slug === 'crop') {
     return <CropWorkspace tool={tool} />;
   }

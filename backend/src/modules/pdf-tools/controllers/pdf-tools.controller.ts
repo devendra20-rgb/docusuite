@@ -418,12 +418,76 @@ export class PdfToolsController {
       const position = req.body.position || 'bottom-center';
       const fontSize = Number(req.body.fontSize) || 10;
       const startPage = Number(req.body.startPage) || 1;
+      const startNumber = req.body.startNumber !== undefined && req.body.startNumber !== '' ? Number(req.body.startNumber) : 1;
+      const skipFirst = req.body.skipFirst === 'true' || req.body.skipFirst === true;
+      const font = req.body.font || 'helvetica';
+      const color = req.body.color;
+      const background = req.body.background || 'none';
+
+      let pages: number[] | undefined;
+      if (req.body.pages) {
+        if (typeof req.body.pages === 'string') {
+          try {
+            pages = JSON.parse(req.body.pages);
+          } catch {
+            pages = req.body.pages.split(',').map((p: string) => Number(p.trim())).filter((n: number) => !isNaN(n));
+          }
+        } else if (Array.isArray(req.body.pages)) {
+          pages = req.body.pages.map(Number).filter((n: number) => !isNaN(n));
+        }
+      }
+
+      let margin: number | undefined;
+      if (req.body.margin !== undefined && req.body.margin !== '') {
+        margin = Number(req.body.margin);
+      }
+      let marginTop: number | undefined;
+      if (req.body.marginTop !== undefined && req.body.marginTop !== '') {
+        marginTop = Number(req.body.marginTop);
+      }
+      let marginBottom: number | undefined;
+      if (req.body.marginBottom !== undefined && req.body.marginBottom !== '') {
+        marginBottom = Number(req.body.marginBottom);
+      }
+      let marginLeft: number | undefined;
+      if (req.body.marginLeft !== undefined && req.body.marginLeft !== '') {
+        marginLeft = Number(req.body.marginLeft);
+      }
+      let marginRight: number | undefined;
+      if (req.body.marginRight !== undefined && req.body.marginRight !== '') {
+        marginRight = Number(req.body.marginRight);
+      }
+
+      let pageRotations: Record<number, number> | undefined;
+      if (req.body.pageRotations) {
+        if (typeof req.body.pageRotations === 'string') {
+          try {
+            pageRotations = JSON.parse(req.body.pageRotations);
+          } catch {
+            pageRotations = undefined;
+          }
+        } else if (typeof req.body.pageRotations === 'object') {
+          pageRotations = req.body.pageRotations;
+        }
+      }
 
       const result = await this.dispatchOrProcess(req, 'pdf-page-numbers', 'page-numbers', {
         format,
         position,
         fontSize,
-        startPage
+        startPage,
+        startNumber,
+        skipFirst,
+        font,
+        background,
+        ...(color !== undefined ? { color } : {}),
+        ...(pages !== undefined ? { pages } : {}),
+        ...(margin !== undefined ? { margin } : {}),
+        ...(marginTop !== undefined ? { marginTop } : {}),
+        ...(marginBottom !== undefined ? { marginBottom } : {}),
+        ...(marginLeft !== undefined ? { marginLeft } : {}),
+        ...(marginRight !== undefined ? { marginRight } : {}),
+        ...(pageRotations !== undefined ? { pageRotations } : {})
       });
       res.status(200).json(result);
     } catch (err) {

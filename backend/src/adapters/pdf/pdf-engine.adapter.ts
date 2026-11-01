@@ -37,7 +37,18 @@ export interface WatermarkOptions {
   opacity?: number; // 0 to 1
   rotationDegrees?: number;
   fontSize?: number;
-  color?: { r: number; g: number; b: number };
+  startNumber?: number;
+  skipFirst?: boolean;
+  pages?: number[]; // 1-indexed
+  font?: 'helvetica' | 'helvetica-bold' | 'times' | 'courier';
+  color?: string | { r: number; g: number; b: number };
+  background?: 'none' | 'white' | 'dark' | 'transparent';
+  margin?: number;
+  marginTop?: number;
+  marginBottom?: number;
+  marginLeft?: number;
+  marginRight?: number;
+  pageRotations?: Record<number, number>;
   allPages?: boolean;
   pages?: number[]; // 1-indexed
 }
@@ -47,7 +58,18 @@ export interface PageNumberOptions {
   position?: 'bottom-center' | 'bottom-right' | 'bottom-left' | 'top-center' | 'top-right' | 'top-left';
   fontSize?: number;
   startPage?: number;
-  color?: { r: number; g: number; b: number };
+  startNumber?: number;
+  skipFirst?: boolean;
+  pages?: number[]; // 1-indexed
+  font?: 'helvetica' | 'helvetica-bold' | 'times' | 'courier';
+  color?: string | { r: number; g: number; b: number };
+  background?: 'none' | 'white' | 'dark' | 'transparent';
+  margin?: number;
+  marginTop?: number;
+  marginBottom?: number;
+  marginLeft?: number;
+  marginRight?: number;
+  pageRotations?: Record<number, number>;
 }
 
 export interface CropOptions {
@@ -1004,63 +1026,196 @@ export class PdfEngineAdapter {
    */
   public async addPageNumbers(pdfBuffer: Buffer, options: PageNumberOptions = {}): Promise<Buffer> {
     const doc = await this.loadPdf(pdfBuffer);
-    const font = await doc.embedFont(StandardFonts.Helvetica);
     const total = doc.getPageCount();
 
+    // 1. Resolve Font
+    let font;
+    switch (options.font) {
+      case 'helvetica-bold':
+        font = await doc.embedFont(StandardFonts.HelveticaBold);
+        break;
+      case 'times':
+        font = await doc.embedFont(StandardFonts.TimesRoman);
+        break;
+      case 'courier':
+        font = await doc.embedFont(StandardFonts.Courier);
+        break;
+      case 'helvetica':
+      default:
+        font = await doc.embedFont(StandardFonts.Helvetica);
+        break;
+    }
+
+    // 2. Options & Defaults
     const {
       format = 'page_of_total',
       position = 'bottom-center',
       fontSize = 10,
       startPage = 1,
-      color = { r: 0.3, g: 0.3, b: 0.3 }
+      startNumber = 1,
+      skipFirst = false,
+      pages: requestedPages,
+      background = 'none',
+      pageRotations
     } = options;
 
-    const textColor = rgb(color.r, color.g, color.b);
+    // Resolve Margins
+    const baseMargin = typeof options.margin === 'number' && !isNaN(options.margin) ? options.margin : 20;
+    const marginTop = typeof options.marginTop === 'number' && !isNaN(options.marginTop) ? options.marginTop : baseMargin;
+    const marginBottom = typeof options.marginBottom === 'number' && !isNaN(options.marginBottom) ? options.marginBottom : baseMargin;
+    const marginLeft = typeof options.marginLeft === 'number' && !isNaN(options.marginLeft) ? options.marginLeft : baseMargin;
+    const marginRight = typeof options.marginRight === 'number' && !isNaN(options.marginRight) ? options.marginRight : baseMargin;
 
-    for (let i = startPage - 1; i < total; i++) {
-      const page = doc.getPage(i);
-      const { width, height } = page.getSize();
-      const pageNum = i + 1;
+    // Resolve Text Color
+    const parseColor = (c?: string | { r: number; g: number; b: number }, defaultColor = rgb(0.2, 0.2, 0.2)) => {
+      if (!c) return defaultColor;
+      if (typeof c === 'string') {
+        let hex = c.trim();
+        if (hex.startsWith('#')) hex = hex.slice(1);
+        if (hex.length === 3) {
+          hex = hex.split('').map(ch => ch + ch).join('');
+        }
+        if (hex.length === 6) {
+          const r = parseInt(hex.substring(0, 2), 16) / 255;
+          const g = parseInt(hex.substring(2, 4), 16) / 255;
+          const b = parseInt(hex.substring(4, 6), 16) / 255;
+          return rgb(isNaN(r) ? 0.2 : r, isNaN(g) ? 0.2 : g, isNaN(b) ? 0.2 : b);
+        }
+        return defaultColor;
+      }
+      let { r, g, b } = c;
+      if (r > 1 || g > 1 || b > 1) {
+        r /= 255;
+        g /= 255;
+        b /= 255;
+      }
+      return rgb(Math.max(0, Math.min(1, r)), Math.max(0, Math.min(1, g)), Math.max(0, Math.min(1, b)));
+    };
+
+    const defaultTextColor = background === 'dark' ? rgb(0.95, 0.95, 0.95) : rgb(0.2, 0.2, 0.2);
+    const textColor = parseColor(options.color, defaultTextColor);
+
+    // 3. Determine which pages will be numbered
+    const targetPages: number[] = [];
+    const validRequestedPages = Array.isArray(requestedPages) && requestedPages.length > 0
+      ? requestedPages.map(Number).filter(p => !isNaN(p) && p >= 1 && p <= total)
+      : null;
+
+    for (let p = 1; p <= total; p++) {
+      if (p < startPage) continue;
+      if (skipFirst && p === 1) continue;
+      if (validRequestedPages && !validRequestedPages.includes(p)) continue;
+      targetPages.push(p);
+    }
+
+    const totalCount = startNumber > 1
+      ? (startNumber + targetPages.length - 1)
+      : (validRequestedPages || skipFirst ? targetPages.length : total);
+
+    // Coordinate mapping helper
+    const getPageTransforms = (rot: number, bX: number, bY: number, bW: number, bH: number, xVal: number, yVal: number) => {
+      rot = (rot % 360 + 360) % 360;
+      if (rot === 90) {
+        return { px: bX + bW - yVal, py: bY + xVal, angle: 90 };
+      } else if (rot === 180) {
+        return { px: bX + bW - xVal, py: bY + bH - yVal, angle: 180 };
+      } else if (rot === 270) {
+        return { px: bX + yVal, py: bY + bH - xVal, angle: 270 };
+      } else {
+        return { px: bX + xVal, py: bY + yVal, angle: 0 };
+      }
+    };
+
+    for (let idx = 0; idx < targetPages.length; idx++) {
+      const pageNum = targetPages[idx];
+      const page = doc.getPage(pageNum - 1);
+      const currentNumber = startNumber + idx;
+
+      // Check crop box and rotation
+      const cropBox = page.getCropBox();
+      const boxX = cropBox.x;
+      const boxY = cropBox.y;
+      const boxW = cropBox.width;
+      const boxH = cropBox.height;
+
+      const manualRotation = pageRotations?.[pageNum] ?? 0;
+      const pageRotation = ((page.getRotation().angle || 0) + manualRotation) % 360;
+      const rot = (pageRotation % 360 + 360) % 360;
+
+      if (manualRotation !== 0) {
+        page.setRotation(degrees(rot));
+      }
+
+      const isSideways = (rot === 90 || rot === 270);
+      const viewW = isSideways ? boxH : boxW;
+      const viewH = isSideways ? boxW : boxH;
 
       let text = '';
       if (format === 'page_of_total') {
-        text = `Page ${pageNum} of ${total}`;
+        text = `Page ${currentNumber} of ${totalCount}`;
       } else if (format === 'page_number') {
-        text = `Page ${pageNum}`;
+        text = `Page ${currentNumber}`;
       } else {
-        text = `${pageNum}`;
+        text = `${currentNumber}`;
       }
 
       const textWidth = font.widthOfTextAtSize(text, fontSize);
       const textHeight = font.heightAtSize(fontSize);
-      const margin = 20;
 
-      let x = (width - textWidth) / 2;
-      let y = margin;
+      let vx = (viewW - textWidth) / 2;
+      let vy = marginBottom;
 
       if (position === 'bottom-left') {
-        x = margin;
-        y = margin;
+        vx = marginLeft;
+        vy = marginBottom;
       } else if (position === 'bottom-right') {
-        x = width - textWidth - margin;
-        y = margin;
+        vx = viewW - textWidth - marginRight;
+        vy = marginBottom;
       } else if (position === 'top-left') {
-        x = margin;
-        y = height - textHeight - margin;
+        vx = marginLeft;
+        vy = viewH - textHeight - marginTop;
       } else if (position === 'top-center') {
-        x = (width - textWidth) / 2;
-        y = height - textHeight - margin;
+        vx = (viewW - textWidth) / 2;
+        vy = viewH - textHeight - marginTop;
       } else if (position === 'top-right') {
-        x = width - textWidth - margin;
-        y = height - textHeight - margin;
+        vx = viewW - textWidth - marginRight;
+        vy = viewH - textHeight - marginTop;
       }
 
+      // Draw background pill/box if requested
+      if (background === 'white' || background === 'dark') {
+        const padX = Math.max(5, Math.round(fontSize * 0.45));
+        const padY = Math.max(3, Math.round(fontSize * 0.3));
+        const rectVx = vx - padX;
+        const rectVy = vy - padY;
+        const rectW = textWidth + padX * 2;
+        const rectH = textHeight + padY * 2;
+
+        const rectT = getPageTransforms(rot, boxX, boxY, boxW, boxH, rectVx, rectVy);
+        const bgColor = background === 'dark' ? rgb(0.12, 0.14, 0.18) : rgb(1, 1, 1);
+        const bgBorderColor = background === 'dark' ? rgb(0.25, 0.28, 0.35) : rgb(0.82, 0.85, 0.9);
+
+        page.drawRectangle({
+          x: rectT.px,
+          y: rectT.py,
+          width: rectW,
+          height: rectH,
+          color: bgColor,
+          borderColor: bgBorderColor,
+          borderWidth: 0.75,
+          rotate: degrees(rectT.angle)
+        });
+      }
+
+      // Draw text
+      const textT = getPageTransforms(rot, boxX, boxY, boxW, boxH, vx, vy);
       page.drawText(text, {
-        x,
-        y,
+        x: textT.px,
+        y: textT.py,
         size: fontSize,
         font,
-        color: textColor
+        color: textColor,
+        rotate: degrees(textT.angle)
       });
     }
 
