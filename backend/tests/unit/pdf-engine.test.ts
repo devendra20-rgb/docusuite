@@ -501,6 +501,25 @@ describe('PdfEngineAdapter (Phase 1 PDF Tools)', () => {
       const protectedPdf = await pdfEngine.protect(samplePdf2Pages, 'realPassword');
       await expect(pdfEngine.unlock(protectedPdf, 'wrongPassword')).rejects.toThrow();
     });
+
+    it('should protect a PDF with complex special characters in password', async () => {
+      const complexPass = 'P@$w0rd "with" quotes & symbols! [2026]';
+      const protectedPdf = await pdfEngine.protect(samplePdf2Pages, complexPass);
+      expect(protectedPdf).toBeInstanceOf(Buffer);
+      const unlockedPdf = await pdfEngine.unlock(protectedPdf, complexPass);
+      expect(unlockedPdf).toBeInstanceOf(Buffer);
+    });
+
+    it('should protect a PDF with distinct user and owner passwords', async () => {
+      const userPass = 'UserOpenPassword#1';
+      const ownerPass = 'OwnerMasterPassword#2';
+      const protectedPdf = await pdfEngine.protect(samplePdf2Pages, userPass, ownerPass);
+      expect(protectedPdf).toBeInstanceOf(Buffer);
+      const unlockedWithUser = await pdfEngine.unlock(protectedPdf, userPass);
+      expect(unlockedWithUser).toBeInstanceOf(Buffer);
+      const unlockedWithOwner = await pdfEngine.unlock(protectedPdf, ownerPass);
+      expect(unlockedWithOwner).toBeInstanceOf(Buffer);
+    });
   });
 
   // Security & Corrupted File Handling

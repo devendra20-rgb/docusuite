@@ -7,12 +7,18 @@ const rawLogger: PinoLogger = pino({
     paths: [
       'req.headers.authorization',
       'password',
+      'ownerPassword',
+      'userPassword',
       'passwordHash',
       'token',
       'refreshToken',
       'secret',
       '*.password',
+      '*.ownerPassword',
+      '*.userPassword',
       'body.password',
+      'body.ownerPassword',
+      'body.userPassword',
       'body.token'
     ],
     censor: '[REDACTED]'

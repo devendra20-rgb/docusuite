@@ -34,11 +34,11 @@ export interface ActiveRenderTask {
 /**
  * Loads a PDF document from a Blob URL or ArrayBuffer
  */
-export async function loadPdfDocument(source: string | ArrayBuffer) {
+export async function loadPdfDocument(source: string | ArrayBuffer, password?: string) {
   const pdfjs = await getPdfjs();
-  const loadingTask = pdfjs.getDocument(
-    typeof source === 'string' ? { url: source } : { data: source }
-  );
+  const options: any = typeof source === 'string' ? { url: source } : { data: source };
+  if (password) options.password = password;
+  const loadingTask = pdfjs.getDocument(options);
   return await loadingTask.promise;
 }
 

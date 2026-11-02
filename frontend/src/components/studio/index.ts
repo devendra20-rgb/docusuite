@@ -13,3 +13,5 @@ export * from './CompressWorkspace';
 export * from './CropWorkspace';
 export * from './PageNumbersWorkspace';
 export * from './WatermarkWorkspace';
+
+export { ProtectWorkspace } from './ProtectWorkspace';

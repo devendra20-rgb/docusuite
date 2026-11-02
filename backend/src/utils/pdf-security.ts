@@ -71,113 +71,126 @@ export class PdfSecurityHelper {
       // not in path
     }
 
+    // Standard platform candidate paths
+    if (process.platform === 'win32') {
+      const winCandidates = [
+        'C:\\Program Files\\qpdf 12.4.2\\bin\\qpdf.exe',
+        'C:\\Program Files\\qpdf\\bin\\qpdf.exe',
+        'C:\\Program Files (x86)\\qpdf\\bin\\qpdf.exe',
+      ];
+      for (const candidate of winCandidates) {
+        if (fsSync.existsSync(candidate)) {
+          this.cachedQpdfPath = candidate;
+          return candidate;
+        }
+      }
+
+      // Dynamic scan of Program Files for any installed qpdf version
+      try {
+        const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
+        if (fsSync.existsSync(programFiles)) {
+          const entries = await fs.readdir(programFiles);
+          for (const entry of entries) {
+            if (/^qpdf/i.test(entry)) {
+              const fullCandidate = path.join(programFiles, entry, 'bin', 'qpdf.exe');
+              if (fsSync.existsSync(fullCandidate)) {
+                this.cachedQpdfPath = fullCandidate;
+                return fullCandidate;
+              }
+            }
+          }
+        }
+      } catch {
+        // ignore scan error
+      }
+    } else {
+      const unixCandidates = [
+        '/usr/bin/qpdf',
+        '/usr/local/bin/qpdf',
+        '/opt/homebrew/bin/qpdf'
+      ];
+      for (const candidate of unixCandidates) {
+        if (fsSync.existsSync(candidate)) {
+          this.cachedQpdfPath = candidate;
+          return candidate;
+        }
+      }
+    }
+
     return null;
   }
 
   /**
-   * Encrypts a PDF buffer with user and owner passwords.
-   * Uses QPDF if available, or native ISO 32000-1 standard security dictionary encryption.
+   * Encrypts a PDF buffer with user and owner passwords using genuine AES-256.
+   * Requires QPDF as the primary encryption engine. Fails safely if unavailable.
    */
   public async encryptPdf(
     inputBuffer: Buffer,
     userPassword: string,
     ownerPassword?: string
   ): Promise<Buffer> {
+    if (!userPassword || userPassword.length === 0) {
+      throw new AppError('A non-empty password is required to encrypt the PDF document', 400);
+    }
+
     const qpdf = await this.getQpdfPath();
 
-    if (qpdf) {
-      const tmpDir = os.tmpdir();
-      const inPath = path.join(tmpDir, `plain-${uuidv4()}.pdf`);
-      const outPath = path.join(tmpDir, `enc-${uuidv4()}.pdf`);
+    if (!qpdf) {
+      throw new AppError(
+        'PDF encryption engine (QPDF) is not installed or available on this system. Cannot securely encrypt document.',
+        500
+      );
+    }
 
+    const tmpDir = os.tmpdir();
+    const inPath = path.join(tmpDir, `plain-${uuidv4()}.pdf`);
+    const outPath = path.join(tmpDir, `enc-${uuidv4()}.pdf`);
+
+    try {
+      await fs.writeFile(inPath, inputBuffer);
+      const ownerPass = ownerPassword && ownerPassword.trim().length > 0 ? ownerPassword : userPassword;
+
+      // 1. Perform genuine AES-256 encryption
+      await execFileAsync(qpdf, [
+        '--warning-exit-0',
+        '--encrypt',
+        `--user-password=${userPassword}`,
+        `--owner-password=${ownerPass}`,
+        '--bits=256',
+        '--',
+        inPath,
+        outPath
+      ]);
+
+      // 2. Post-encryption verification: verify incorrect password fails
       try {
-        await fs.writeFile(inPath, inputBuffer);
-        const ownerPass = ownerPassword || userPassword;
         await execFileAsync(qpdf, [
-          '--encrypt',
-          userPassword,
-          ownerPass,
-          '256',
-          '--',
-          inPath,
+          '--warning-exit-0',
+          '--password=__INVALID_VERIFY_PWD_CHECK__',
+          '--check',
           outPath
         ]);
-        const encryptedBytes = await fs.readFile(outPath);
-        return encryptedBytes;
-      } finally {
-        await fs.unlink(inPath).catch(() => {});
-        await fs.unlink(outPath).catch(() => {});
+        // If the above did not throw, the document is NOT password protected!
+        throw new AppError('Encryption verification failed: PDF was not properly password protected', 500);
+      } catch (checkErr: any) {
+        if (checkErr instanceof AppError) throw checkErr;
+        // Expected to fail with invalid password
       }
+
+      // 3. Post-encryption verification: verify correct password succeeds
+      await execFileAsync(qpdf, [
+        '--warning-exit-0',
+        `--password=${userPassword}`,
+        '--check',
+        outPath
+      ]);
+
+      const encryptedBytes = await fs.readFile(outPath);
+      return encryptedBytes;
+    } finally {
+      await fs.unlink(inPath).catch(() => {});
+      await fs.unlink(outPath).catch(() => {});
     }
-
-    // Pure Node standard PDF password encryption handler
-    return this.applyPureNodeEncryption(inputBuffer, userPassword, ownerPassword || userPassword);
-  }
-
-  /**
-   * Implements Standard Security Handler Revision 2/3 (ISO 32000-1, section 7.6.3.3)
-   */
-  private applyPureNodeEncryption(
-    inputBuffer: Buffer,
-    userPassword: string,
-    ownerPassword: string
-  ): Buffer {
-    // Generate Document ID
-    const docId = crypto.randomBytes(16);
-    const P = -4; // Permissions: print, copy allowed or restricted
-
-    // 1. Compute Owner Key (O)
-    const ownerPad = Buffer.alloc(32);
-    const userPad = Buffer.alloc(32);
-    Buffer.from(ownerPassword, 'utf8').copy(ownerPad);
-    PDF_PADDING.copy(ownerPad, Math.min(ownerPassword.length, 32));
-
-    Buffer.from(userPassword, 'utf8').copy(userPad);
-    PDF_PADDING.copy(userPad, Math.min(userPassword.length, 32));
-
-    const ownerHash = crypto.createHash('md5').update(ownerPad).digest();
-    const O = rc4Encrypt(ownerHash.subarray(0, 16), userPad);
-
-    // 2. Compute Encryption Key
-    const pBytes = Buffer.alloc(4);
-    pBytes.writeInt32LE(P, 0);
-
-    const keyHash = crypto
-      .createHash('md5')
-      .update(userPad)
-      .update(O)
-      .update(pBytes)
-      .update(docId)
-      .digest();
-
-    const encKey = keyHash.subarray(0, 16);
-
-    // 3. Compute User Key (U)
-    const U = rc4Encrypt(encKey, PDF_PADDING);
-
-    // 4. Construct encrypted PDF payload with /Encrypt dictionary
-    const encryptObjNum = 9999;
-    const encryptDict = `${encryptObjNum} 0 obj\n<<\n  /Filter /Standard\n  /V 2\n  /R 3\n  /Length 128\n  /P ${P}\n  /O <${O.toString('hex')}>\n  /U <${U.toString('hex')}>\n>>\nendobj\n`;
-
-    const contentStr = inputBuffer.toString('binary');
-    const trailerIdx = contentStr.lastIndexOf('trailer');
-
-    if (trailerIdx === -1) {
-      throw new AppError('Invalid PDF structure: trailer keyword missing', 400);
-    }
-
-    const beforeTrailer = contentStr.substring(0, trailerIdx);
-    const afterTrailer = contentStr.substring(trailerIdx);
-
-    const newTrailer = afterTrailer.replace(
-      /<<([\s\S]*?)>>/,
-      (match, inside) => {
-        return `<<${inside}\n  /Encrypt ${encryptObjNum} 0 R\n  /ID [<${docId.toString('hex')}> <${docId.toString('hex')}>]\n>>`;
-      }
-    );
-
-    const finalPdf = `${beforeTrailer}${encryptDict}${newTrailer}`;
-    return Buffer.from(finalPdf, 'binary');
   }
 
   /**
@@ -194,6 +207,7 @@ export class PdfSecurityHelper {
       try {
         await fs.writeFile(inPath, pdfBuffer);
         await execFileAsync(qpdf, [
+          '--warning-exit-0',
           `--password=${password}`,
           '--decrypt',
           inPath,

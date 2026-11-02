@@ -1589,10 +1589,10 @@ export class PdfEngineAdapter {
 
     // Verify it is a valid PDF first and ensure standard trailer is emitted
     const doc = await this.loadPdf(pdfBuffer);
-    const standardizedPdf = await doc.save({ useObjectStreams: false });
+    // Keep original buffer to preserve exact stream fidelity
 
     const { pdfSecurity } = await import('../../utils/pdf-security.js');
-    return pdfSecurity.encryptPdf(Buffer.from(standardizedPdf), userPassword, ownerPassword);
+    return pdfSecurity.encryptPdf(pdfBuffer, userPassword, ownerPassword);
   }
 
   /**
