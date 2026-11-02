@@ -490,8 +490,8 @@ export const ALL_TOOLS: ToolDefinition[] = [
     acceptMimeTypes: ['application/pdf'],
     minFiles: 1,
     maxFiles: 1,
-    requiresLibreOffice: true,
-    limitations: 'Requires LibreOffice engine on backend. Layout fidelity is maximized for text and tabular documents.'
+    requiresLibreOffice: false,
+    limitations: 'Extracts flowing paragraphs, headings, tables, and typography into a genuinely editable Microsoft Word (.docx) document.'
   },
   {
     id: 'word-to-pdf',

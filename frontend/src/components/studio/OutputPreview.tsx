@@ -338,6 +338,7 @@ export const OutputPreview: React.FC<OutputPreviewProps> = ({
     /\.(jpe?g|png|webp|svg)$/i.test(selectedOutput.filename);
   const isExcel = /\.(xlsx?|csv)$/i.test(selectedOutput.filename);
   const isArchive = /\.zip$/i.test(selectedOutput.filename);
+  const isWord = /\.(docx?|rtf|odt)$/i.test(selectedOutput.filename);
 
   return (
     <div className="bg-white rounded-3xl border border-emerald-200 shadow-xl overflow-hidden mb-8 animate-in fade-in duration-200">

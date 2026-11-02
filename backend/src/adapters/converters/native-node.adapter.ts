@@ -9,6 +9,7 @@ import { IConversionEngine, ConversionResult } from './conversion.interface.js';
 import { AppError, ConversionError } from '../../utils/errors.js';
 import { createChildLogger } from '../../utils/logger.js';
 import { pdfTableExtractor } from './pdf-table-extractor.service.js';
+import { pdfToWordConverter } from './pdf-to-word.service.js';
 
 const logger = createChildLogger('NativeNodeAdapter');
 
@@ -28,7 +29,7 @@ export class NativeNodeAdapter implements IConversionEngine {
       xlsx: ['csv'],
       txt: ['pdf'],
       docx: ['html'],
-      pdf: ['xlsx']
+      pdf: ['xlsx', 'docx']
     };
 
     return pairs[from]?.includes(to) || false;
@@ -38,6 +39,13 @@ export class NativeNodeAdapter implements IConversionEngine {
     const from = fromExt.toLowerCase().replace('.', '');
     const to = toExt.toLowerCase().replace('.', '');
 
+    if (from === 'pdf' && to === 'docx') {
+      return [
+        'Extracts flowing paragraphs, headings, tables, and typography into a genuinely editable Microsoft Word (.docx) document.',
+        'Maintains page orientation, margins, and page breaks.',
+        'Scanned PDFs without selectable text require OCR, which is clearly reported when detected.'
+      ];
+    }
     if (from === 'pdf' && to === 'xlsx') {
       return [
         'Extracts structured tabular data grids and outputs a formatted spreadsheet with styled headers and alternating rows.',
@@ -93,6 +101,8 @@ export class NativeNodeAdapter implements IConversionEngine {
         await this.convertTxtToPdf(inputPath, outputPath);
       } else if (from === 'pdf' && to === 'xlsx') {
         await pdfTableExtractor.extractToExcel(inputPath, outputPath);
+      } else if (from === 'pdf' && to === 'docx') {
+        await pdfToWordConverter.convert(inputPath, outputPath, options);
       } else {
         throw new AppError(`Unsupported native conversion from ${from} to ${to}`, 400);
       }
@@ -260,6 +270,7 @@ ${result.value}
 
   private getMimeForExtension(ext: string): string {
     const map: Record<string, string> = {
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       csv: 'text/csv',
       html: 'text/html',
