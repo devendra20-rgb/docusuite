@@ -42,6 +42,7 @@ export const StudioControls: React.FC<StudioControlsProps> = ({
   const validCount = validDocuments.length;
   const totalSize = documents.reduce((acc, d) => acc + d.size, 0);
   const totalPages = validDocuments.reduce((acc, d) => acc + d.pageCount, 0);
+  const isAnyEncrypted = documents.some((d) => d.isEncrypted && d.loadState !== 'loaded');
   const excludedPages =
     activeDocument?.pages.filter((p) => p.isDeleted).length || 0;
 
@@ -83,9 +84,15 @@ export const StudioControls: React.FC<StudioControlsProps> = ({
         <div>
           <span className="text-[10px] font-bold uppercase text-slate-400 block">Pages</span>
           <span className="font-heading font-bold text-base text-slate-800">
-            {totalPages}
-            {excludedPages > 0 && (
-              <span className="text-[10px] text-red-500 block">(-{excludedPages} excl)</span>
+            {isAnyEncrypted && totalPages === 0 ? (
+              <span className="text-xs sm:text-sm text-rose-600 font-semibold">Locked</span>
+            ) : (
+              <>
+                {totalPages}
+                {excludedPages > 0 && (
+                  <span className="text-[10px] text-red-500 block">(-{excludedPages} excl)</span>
+                )}
+              </>
             )}
           </span>
         </div>
@@ -169,7 +176,13 @@ export const StudioControls: React.FC<StudioControlsProps> = ({
                     onChange={(e) => onParameterChange(param.name, e.target.value)}
                     className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-xs sm:text-sm text-slate-800 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10"
                   />
-                  {param.description && (
+                  {activeDocument?.isEncrypted && activeDocument?.errorMessage && (
+                    <p className="text-[11px] text-rose-600 font-medium flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{activeDocument.errorMessage}</span>
+                    </p>
+                  )}
+                  {param.description && !activeDocument?.errorMessage && (
                     <p className="text-[11px] text-slate-400 leading-tight">
                       {param.description}
                     </p>

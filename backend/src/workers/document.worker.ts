@@ -497,6 +497,27 @@ export const processDocumentJob = async (job: Job<DocumentJobData>): Promise<voi
     logger.error('Job processing failed', { jobId, error: errorDetails });
     await jobService.markJobFailed(jobId, errorDetails);
     throw err;
+  } finally {
+    if (job && job.data && job.data.parameters) {
+      let modified = false;
+      const sanitized = { ...job.data.parameters };
+      for (const key of ['password', 'userPassword', 'ownerPassword', 'currentPassword']) {
+        if (key in sanitized && sanitized[key] !== '[PROTECTED]') {
+          sanitized[key] = '[PROTECTED]';
+          modified = true;
+        }
+      }
+      if (modified && typeof job.updateData === 'function') {
+        try {
+          await job.updateData({
+            ...job.data,
+            parameters: sanitized
+          });
+        } catch {
+          // ignore cleanup error
+        }
+      }
+    }
   }
 };
 

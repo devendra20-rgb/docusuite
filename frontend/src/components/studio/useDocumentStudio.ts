@@ -104,6 +104,80 @@ export function useDocumentStudio({ tool }: UseDocumentStudioProps) {
     };
   }, [activeDocument]);
 
+  // Reactively authenticate and unlock PDF preview when password parameter is entered or changed
+  useEffect(() => {
+    if (!activeDocument || !activeDocument.isPdf) return;
+    const pwd = typeof parameters.password === 'string' ? parameters.password.trim() : '';
+    if (!activeDocument.isEncrypted && activeDocument.loadState === 'loaded') return;
+
+    let isCancelled = false;
+    const authenticateWithPassword = async () => {
+      try {
+        const source = activeDocument.objectUrl || (await activeDocument.file.arrayBuffer());
+        const doc = await loadPdfDocument(source, pwd || undefined);
+        if (isCancelled) return;
+
+        pdfDocsRef.current.set(activeDocument.id, doc);
+        setPdfDocsVersion((v) => v + 1);
+
+        const pageCount = doc.numPages || 1;
+        const newPages: StudioPage[] = [];
+        for (let i = 1; i <= pageCount; i++) {
+          newPages.push({
+            id: `${activeDocument.id}_p${i}`,
+            originalPageNumber: i,
+            displayOrder: i,
+            rotation: 0,
+            isDeleted: false
+          });
+        }
+
+        setDocuments((prevDocs) =>
+          prevDocs.map((d) =>
+            d.id === activeDocument.id
+              ? {
+                  ...d,
+                  pageCount,
+                  pages: newPages,
+                  loadState: 'loaded',
+                  isEncrypted: false,
+                  errorMessage: undefined
+                }
+              : d
+          )
+        );
+      } catch (err: any) {
+        if (isCancelled) return;
+        const isPasswordErr =
+          err?.name === 'PasswordException' ||
+          err?.message?.toLowerCase().includes('password');
+        if (isPasswordErr) {
+          const msg = pwd.length > 0 ? 'Incorrect password. Unable to decrypt PDF.' : undefined;
+          pdfDocsRef.current.delete(activeDocument.id);
+          setPdfDocsVersion((v) => v + 1);
+          setDocuments((prevDocs) =>
+            prevDocs.map((d) =>
+              d.id === activeDocument.id
+                ? {
+                    ...d,
+                    isEncrypted: true,
+                    loadState: 'error',
+                    errorMessage: msg
+                  }
+                : d
+            )
+          );
+        }
+      }
+    };
+
+    const timer = setTimeout(authenticateWithPassword, pwd ? 250 : 0);
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [activeDocument?.id, parameters.password]);
+
   // Synchronize activePageIndex within document page count bounds
   useEffect(() => {
     if (activePages.length > 0) {
@@ -213,7 +287,8 @@ export function useDocumentStudio({ tool }: UseDocumentStudioProps) {
             }
           ],
           loadState: 'error',
-          errorMessage: err?.message || 'Failed to read PDF pages'
+          isEncrypted: err?.name === 'PasswordException' || err?.message?.toLowerCase().includes('password'),
+          errorMessage: (err?.name === 'PasswordException' || err?.message?.toLowerCase().includes('password')) ? undefined : (err?.message || 'Failed to read PDF pages')
         };
       }
     } else {

@@ -33,7 +33,7 @@ export class JobService {
       progress: 0,
       inputFiles: params.inputFiles,
       outputFiles: [],
-      parameters: params.parameters || {},
+      parameters: (() => { const s = { ...(params.parameters || {}) }; for (const k of ['password', 'userPassword', 'ownerPassword', 'currentPassword']) { if (k in s) s[k] = '[PROTECTED]'; } return s; })(),
       expiresAt,
       createdAt: new Date(),
       updatedAt: new Date()

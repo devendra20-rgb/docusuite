@@ -42,17 +42,15 @@ export class PdfToolsController {
 
     // Sanitize sensitive credentials (passwords) so they are never persisted in the database
     const sanitizedParametersForStorage: Record<string, unknown> = { ...effectiveParameters };
-    if (toolName === 'pdf-protect' || toolName === 'pdf-unlock') {
-      if ('password' in sanitizedParametersForStorage) {
-        sanitizedParametersForStorage.password = '[PROTECTED]';
-      }
-      if ('ownerPassword' in sanitizedParametersForStorage) {
-        sanitizedParametersForStorage.ownerPassword = '[PROTECTED]';
+    const sensitiveParamKeys = ['password', 'userPassword', 'ownerPassword', 'currentPassword'];
+    for (const key of sensitiveParamKeys) {
+      if (key in sanitizedParametersForStorage) {
+        sanitizedParametersForStorage[key] = '[PROTECTED]';
       }
     }
 
     const job = await jobService.createJob({
-      tool: toolName,
+      tool: operation || toolName,
       userId: req.user?.id,
       isGuest: req.isGuest || false,
       guestIp: req.guestIp,

@@ -35,6 +35,7 @@ export interface StudioDocument {
   pages: StudioPage[];
   loadState: 'loading' | 'loaded' | 'error';
   errorMessage?: string;
+  isEncrypted?: boolean;
 }
 
 export type OperationType =

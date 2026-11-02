@@ -12,6 +12,7 @@ import {
   Undo2,
   FileText,
   AlertCircle,
+  Lock,
   Loader2,
   Sparkles,
   Plus
@@ -73,6 +74,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   useEffect(() => {
     if (activePdfDoc) {
       setInternalPdfDoc(activePdfDoc);
+      setRenderError(null);
       return;
     }
     if (!document || !document.isPdf) {
@@ -83,14 +85,23 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
     let isCancelled = false;
     (async () => {
       try {
+        if (document.isEncrypted && !activePdfDoc) {
+          return;
+        }
         const source = document.objectUrl || (await document.file.arrayBuffer());
         const loaded = await loadPdfDocument(source);
         if (!isCancelled) {
           setInternalPdfDoc(loaded);
+          setRenderError(null);
         }
       } catch (err: any) {
         if (!isCancelled) {
-          setRenderError(err?.message || 'Failed to load PDF document');
+          const isPwdErr = err?.name === 'PasswordException' || err?.message?.toLowerCase().includes('password');
+          if (!isPwdErr) {
+            setRenderError(err?.message || 'Failed to load PDF document');
+          } else {
+            setRenderError(null);
+          }
         }
       }
     })();
@@ -453,7 +464,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
         className="flex-1 overflow-auto p-4 sm:p-6 flex relative bg-slate-100/90"
       >
         {/* Loading Spinner */}
-        {(isRendering || (!effectivePdfDoc && document.isPdf)) && (
+        {(isRendering || (!effectivePdfDoc && document.isPdf && !document.isEncrypted)) && (
           <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex items-center justify-center z-20 transition-opacity">
             <div className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs shadow-lg">
               <Loader2 className="w-4 h-4 animate-spin text-rose-500" />
@@ -467,6 +478,27 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
           <div className="m-auto p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center space-x-2 max-w-md">
             <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
             <span>{renderError}</span>
+          </div>
+        )}
+
+                {/* Password Protected Locked Document Banner */}
+        {document.isEncrypted && !effectivePdfDoc && (
+          <div className="m-auto p-8 rounded-2xl bg-white border border-slate-200 shadow-xs text-center max-w-md">
+            <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3 border border-rose-100 shadow-xs">
+              <Lock className="w-7 h-7" />
+            </div>
+            <h4 className="font-heading font-bold text-slate-900 text-base">
+              Password-Protected PDF
+            </h4>
+            <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+              This document is encrypted. Enter the current password in the configuration panel on the right to preview and unlock it.
+            </p>
+            {document.errorMessage && document.errorMessage.toLowerCase().includes('incorrect') && (
+              <div className="mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center justify-center space-x-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{document.errorMessage}</span>
+              </div>
+            )}
           </div>
         )}
 
