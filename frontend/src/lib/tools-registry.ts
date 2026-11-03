@@ -513,7 +513,8 @@ export const ALL_TOOLS: ToolDefinition[] = [
     ],
     minFiles: 1,
     maxFiles: 1,
-    requiresLibreOffice: true
+    requiresLibreOffice: false,
+    limitations: 'Converts Microsoft Word (.docx, .doc) files into high-fidelity PDF documents preserving formatting, tables, images, headers, footers, and page orientation.'
   },
   {
     id: 'pdf-to-excel',

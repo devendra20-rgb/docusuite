@@ -15,3 +15,4 @@ export * from './PageNumbersWorkspace';
 export * from './WatermarkWorkspace';
 
 export { ProtectWorkspace } from './ProtectWorkspace';
+export * from './WordToPdfWorkspace';

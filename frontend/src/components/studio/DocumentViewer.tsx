@@ -65,6 +65,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   const [pageInputVal, setPageInputVal] = useState<string>(String(activePageIndex));
   const [internalPdfDoc, setInternalPdfDoc] = useState<any>(null);
 
+
   // Sync page input when activePageIndex changes
   useEffect(() => {
     setPageInputVal(String(activePageIndex));
@@ -405,7 +406,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
             </button>
           )}
 
-          <div className="h-4 w-px bg-slate-200 mx-1" />
+          {activePage && <div className="h-4 w-px bg-slate-200 mx-1" />}
 
           {/* Zoom Out */}
           <button
@@ -459,6 +460,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       </div>
 
       {/* Main Canvas / Content Viewport */}
+      
       <div
         ref={viewportRef}
         className="flex-1 overflow-auto p-4 sm:p-6 flex relative bg-slate-100/90"

@@ -12,6 +12,7 @@ import { CropWorkspace } from '@/components/studio/CropWorkspace';
 import { PageNumbersWorkspace } from '@/components/studio/PageNumbersWorkspace';
 import { WatermarkWorkspace } from '@/components/studio/WatermarkWorkspace';
 import { ProtectWorkspace } from '@/components/studio/ProtectWorkspace';
+import { WordToPdfWorkspace } from '@/components/studio/WordToPdfWorkspace';
 
 export interface ToolWorkspaceProps {
   tool: ToolDefinition;
@@ -23,6 +24,9 @@ export interface ToolWorkspaceProps {
  * while other tools use the standard studio workspace.
  */
 export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({ tool }) => {
+  if (tool.slug === 'word-to-pdf' || tool.id === 'word-to-pdf') {
+    return <WordToPdfWorkspace tool={tool} />;
+  }
   if (tool.slug === 'protect' || tool.id === 'protect-pdf') {
     return <ProtectWorkspace tool={tool} />;
   }

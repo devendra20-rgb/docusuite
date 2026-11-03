@@ -10,6 +10,7 @@ import { AppError, ConversionError } from '../../utils/errors.js';
 import { createChildLogger } from '../../utils/logger.js';
 import { pdfTableExtractor } from './pdf-table-extractor.service.js';
 import { pdfToWordConverter } from './pdf-to-word.service.js';
+import { wordToPdfConverter } from './word-to-pdf.service.js';
 
 const logger = createChildLogger('NativeNodeAdapter');
 
@@ -28,7 +29,8 @@ export class NativeNodeAdapter implements IConversionEngine {
       csv: ['xlsx'],
       xlsx: ['csv'],
       txt: ['pdf'],
-      docx: ['html'],
+      docx: ['html', 'pdf'],
+      doc: ['pdf'],
       pdf: ['xlsx', 'docx']
     };
 
@@ -39,6 +41,13 @@ export class NativeNodeAdapter implements IConversionEngine {
     const from = fromExt.toLowerCase().replace('.', '');
     const to = toExt.toLowerCase().replace('.', '');
 
+    if ((from === 'docx' || from === 'doc') && to === 'pdf') {
+      return [
+        'Preserves document typography, headings, tables, embedded images, headers, footers, margins, and page orientation.',
+        'Uses native high-fidelity OpenXML layout engine with headless LibreOffice support when available.',
+        'Complex third-party macros, ActiveX controls, and embedded OLE objects are omitted.'
+      ];
+    }
     if (from === 'pdf' && to === 'docx') {
       return [
         'Extracts flowing paragraphs, headings, tables, and typography into a genuinely editable Microsoft Word (.docx) document.',
@@ -103,6 +112,8 @@ export class NativeNodeAdapter implements IConversionEngine {
         await pdfTableExtractor.extractToExcel(inputPath, outputPath);
       } else if (from === 'pdf' && to === 'docx') {
         await pdfToWordConverter.convert(inputPath, outputPath, options);
+      } else if ((from === 'docx' || from === 'doc') && to === 'pdf') {
+        await wordToPdfConverter.convert(inputPath, outputPath, options);
       } else {
         throw new AppError(`Unsupported native conversion from ${from} to ${to}`, 400);
       }
