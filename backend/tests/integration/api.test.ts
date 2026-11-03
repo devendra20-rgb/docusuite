@@ -5,7 +5,8 @@ import {
   createSyntheticPdf,
   createSyntheticImage,
   createSyntheticCsv,
-  createSyntheticTxt
+  createSyntheticTxt,
+  createSyntheticXlsx
 } from '../fixtures/synthetic.js';
 
 describe('DocuSuite Full API Integration Tests', () => {
@@ -15,6 +16,7 @@ describe('DocuSuite Full API Integration Tests', () => {
   let samplePng: Buffer;
   let sampleCsv: Buffer;
   let sampleTxt: Buffer;
+  let sampleXlsx: Buffer;
   let authToken: string;
 
   beforeAll(async () => {
@@ -23,6 +25,7 @@ describe('DocuSuite Full API Integration Tests', () => {
     samplePng = await createSyntheticImage('png');
     sampleCsv = createSyntheticCsv();
     sampleTxt = createSyntheticTxt(20);
+    sampleXlsx = await createSyntheticXlsx();
   });
 
   describe('Health, Status & Documentation Endpoints', () => {
@@ -34,12 +37,60 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.uptimeSeconds).toBeDefined();
     });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
     it('GET /api/ready should return readiness and dependency status', async () => {
       const res = await request(app).get('/api/ready');
       expect(res.status).toBe(200);
       expect(res.body.status).toBeDefined();
       expect(res.body.dependencies).toBeDefined();
       expect(res.body.dependencies.storage).toBe('writable');
+    });
+
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
     });
 
     it('GET /api/docs.json should return the OpenAPI specification', async () => {
@@ -50,11 +101,59 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.paths['/tools/pdf/merge']).toBeDefined();
     });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
     it('GET /api/nonexistent-route should return structured 404', async () => {
       const res = await request(app).get('/api/nonexistent-route');
       expect(res.status).toBe(404);
       expect(res.body.success).toBe(false);
       expect(res.body.error.code).toBe('NOT_FOUND');
+    });
+
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
     });
   });
 
@@ -78,6 +177,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       authToken = res.body.data.tokens.accessToken;
     });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
     it('POST /api/auth/login should authenticate registered user', async () => {
       const res = await request(app)
         .post('/api/auth/login')
@@ -86,9 +209,57 @@ describe('DocuSuite Full API Integration Tests', () => {
           password: testUser.password
         });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.tokens.accessToken).toBeDefined();
+    });
+
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
     });
 
     it('GET /api/auth/me should return authenticated profile with valid token', async () => {
@@ -101,10 +272,58 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.data.email).toBe(testUser.email.toLowerCase());
     });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
     it('GET /api/auth/me should reject unauthenticated requests with 401', async () => {
       const res = await request(app).get('/api/auth/me');
       expect(res.status).toBe(401);
       expect(res.body.success).toBe(false);
+    });
+
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
     });
   });
 
@@ -122,6 +341,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.outputFiles.length).toBe(1);
     });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
     it('POST /api/tools/pdf/merge with single file should return 400 validation error', async () => {
       const res = await request(app)
         .post('/api/tools/pdf/merge')
@@ -129,6 +372,30 @@ describe('DocuSuite Full API Integration Tests', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
+    });
+
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
     });
 
     it('POST /api/tools/pdf/split should split a PDF document', async () => {
@@ -142,6 +409,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.outputFiles.length).toBeGreaterThanOrEqual(1);
     });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
     it('POST /api/tools/pdf/compress should compress an uploaded PDF', async () => {
       const res = await request(app)
         .post('/api/tools/pdf/compress')
@@ -150,6 +441,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.outputFiles.length).toBe(1);
+    });
+
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
     });
 
     it('POST /api/tools/pdf/rotate should rotate PDF pages', async () => {
@@ -162,6 +477,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.success).toBe(true);
     });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
     it('POST /api/tools/pdf/rotate should support per-page rotations via pageRotations', async () => {
       const res = await request(app)
         .post('/api/tools/pdf/rotate')
@@ -170,6 +509,30 @@ describe('DocuSuite Full API Integration Tests', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
+    });
+
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
     });
 
     it('POST /api/tools/pdf/rotate should allow 0 degree net rotation without error', async () => {
@@ -182,6 +545,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.success).toBe(true);
     });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
     it('POST /api/tools/pdf/rotate should reject invalid non-numeric pages input', async () => {
       const res = await request(app)
         .post('/api/tools/pdf/rotate')
@@ -191,6 +578,30 @@ describe('DocuSuite Full API Integration Tests', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
+    });
+
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
     });
 
     it('POST /api/tools/pdf/to-images should convert a PDF to JPG images and return ZIP with individual files', async () => {
@@ -209,6 +620,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.outputFiles[0].originalName).toContain('sample_report');
     });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
     it('POST /api/tools/pdf/to-images should support specific page range filtering', async () => {
       const res = await request(app)
         .post('/api/tools/pdf/to-images')
@@ -221,6 +656,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.outputFiles[0].mimeType).toBe('image/png');
     });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
     it('POST /api/tools/pdf/to-images should reject invalid format parameter with 400', async () => {
       const res = await request(app)
         .post('/api/tools/pdf/to-images')
@@ -231,6 +690,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.success).toBe(false);
     });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
     it('POST /api/tools/pdf/to-images should reject invalid DPI with 400', async () => {
       const res = await request(app)
         .post('/api/tools/pdf/to-images')
@@ -239,6 +722,30 @@ describe('DocuSuite Full API Integration Tests', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
+    });
+
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
     });
 
     it('POST /api/tools/pdf/to-images should reject corrupted PDF structure with 400 validation error', async () => {
@@ -253,6 +760,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.error.code).toBe('VALIDATION_ERROR');
     });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
     it('POST /api/tools/images/to-pdf should convert uploaded images to PDF', async () => {
       const res = await request(app)
         .post('/api/tools/images/to-pdf')
@@ -261,6 +792,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.outputFiles.length).toBe(1);
+    });
+
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
     });
 
     it('POST /api/tools/pdf/add-page-numbers should number pages of a PDF', async () => {
@@ -274,6 +829,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.success).toBe(true);
     });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
     it('POST /api/tools/pdf/add-watermark should add text watermark to a PDF', async () => {
       const res = await request(app)
         .post('/api/tools/pdf/add-watermark')
@@ -284,6 +863,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
     });
+
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
   });
 
   describe('Conversions Endpoints (Phase 2)', () => {
@@ -293,6 +896,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.success).toBe(true);
       expect(Array.isArray(res.body.data)).toBe(true);
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
     });
 
     it('POST /api/tools/convert/csv-to-excel should convert CSV to Excel', async () => {
@@ -306,6 +933,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.outputFiles[0].originalName).toContain('.xlsx');
     });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
     it('POST /api/tools/convert/txt-to-pdf should convert text to PDF', async () => {
       const res = await request(app)
         .post('/api/tools/convert/txt-to-pdf')
@@ -314,6 +965,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.outputFiles.length).toBe(1);
+    });
+
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
     });
   });
 
@@ -331,6 +1006,30 @@ describe('DocuSuite Full API Integration Tests', () => {
       createdJobId = res.body.jobId;
     });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
     it('GET /api/jobs/:jobId should return job status information', async () => {
       const res = await request(app).get(`/api/jobs/${createdJobId}`);
       expect(res.status).toBe(200);
@@ -339,10 +1038,58 @@ describe('DocuSuite Full API Integration Tests', () => {
       expect(res.body.data.tool).toBe('compress');
     });
 
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
     it('GET /api/jobs/:jobId with invalid id should return 404', async () => {
       const res = await request(app).get('/api/jobs/00000000-0000-0000-0000-000000000000');
       expect(res.status).toBe(404);
       expect(res.body.success).toBe(false);
+    });
+
+    it('POST /api/tools/convert/excel-to-pdf should convert Excel to PDF via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/excel-to-pdf')
+        .attach('files', sampleXlsx, 'report.xlsx');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pdf');
+      expect(res.body.engine).toBe('NativeNodeEngine');
+    });
+
+    it('POST /api/tools/convert/pdf-to-powerpoint should convert PDF to PowerPoint PPTX via NativeNodeEngine without LibreOffice', async () => {
+      const res = await request(app)
+        .post('/api/tools/convert/pdf-to-powerpoint')
+        .attach('files', samplePdf1, 'presentation.pdf');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.outputFiles.length).toBe(1);
+      expect(res.body.outputFiles[0].originalName).toContain('.pptx');
+      expect(res.body.engine).toBe('NativeNodeEngine');
     });
   });
 });

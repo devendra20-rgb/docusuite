@@ -571,7 +571,8 @@ export const ALL_TOOLS: ToolDefinition[] = [
     acceptMimeTypes: ['application/pdf'],
     minFiles: 1,
     maxFiles: 1,
-    requiresLibreOffice: true
+    requiresLibreOffice: false,
+    limitations: 'Converts presentation PDFs into high-fidelity PowerPoint (.pptx) decks preserving all vector graphics, diagrams, tables, and layouts.'
   },
   {
     id: 'powerpoint-to-pdf',

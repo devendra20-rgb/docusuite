@@ -12,6 +12,7 @@ import { pdfTableExtractor } from './pdf-table-extractor.service.js';
 import { pdfToWordConverter } from './pdf-to-word.service.js';
 import { wordToPdfConverter } from './word-to-pdf.service.js';
 import { excelToPdfConverter } from './excel-to-pdf.service.js';
+import { pdfToPowerPointConverter } from './pdf-to-powerpoint.service.js';
 
 const logger = createChildLogger('NativeNodeAdapter');
 
@@ -33,7 +34,7 @@ export class NativeNodeAdapter implements IConversionEngine {
       txt: ['pdf'],
       docx: ['html', 'pdf'],
       doc: ['pdf'],
-      pdf: ['xlsx', 'docx']
+      pdf: ['xlsx', 'docx', 'pptx']
     };
 
     return pairs[from]?.includes(to) || false;
@@ -62,6 +63,13 @@ export class NativeNodeAdapter implements IConversionEngine {
         'Extracts flowing paragraphs, headings, tables, and typography into a genuinely editable Microsoft Word (.docx) document.',
         'Maintains page orientation, margins, and page breaks.',
         'Scanned PDFs without selectable text require OCR, which is clearly reported when detected.'
+      ];
+    }
+    if (from === 'pdf' && to === 'pptx') {
+      return [
+        'Converts PDF presentation slides into high-fidelity PowerPoint (.pptx) decks preserving vector clarity, typography, diagrams, and layout geometry.',
+        'Generates standard OpenXML PresentationML packages compatible with Microsoft PowerPoint, Google Slides, and Apple Keynote.',
+        'Embedded video or audio streams within the PDF are omitted.'
       ];
     }
     if (from === 'pdf' && to === 'xlsx') {
@@ -121,6 +129,8 @@ export class NativeNodeAdapter implements IConversionEngine {
         await pdfTableExtractor.extractToExcel(inputPath, outputPath);
       } else if (from === 'pdf' && to === 'docx') {
         await pdfToWordConverter.convert(inputPath, outputPath, options);
+      } else if (from === 'pdf' && to === 'pptx') {
+        await pdfToPowerPointConverter.convert(inputPath, outputPath, options);
       } else if ((from === 'docx' || from === 'doc') && to === 'pdf') {
         await wordToPdfConverter.convert(inputPath, outputPath, options);
       } else if ((from === 'xlsx' || from === 'xls') && to === 'pdf') {
@@ -294,6 +304,7 @@ ${result.value}
     const map: Record<string, string> = {
       docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       csv: 'text/csv',
       html: 'text/html',
       pdf: 'application/pdf',
