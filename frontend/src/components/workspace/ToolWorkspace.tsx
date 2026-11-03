@@ -13,6 +13,7 @@ import { PageNumbersWorkspace } from '@/components/studio/PageNumbersWorkspace';
 import { WatermarkWorkspace } from '@/components/studio/WatermarkWorkspace';
 import { ProtectWorkspace } from '@/components/studio/ProtectWorkspace';
 import { WordToPdfWorkspace } from '@/components/studio/WordToPdfWorkspace';
+import { ExcelToPdfWorkspace } from '@/components/studio/ExcelToPdfWorkspace';
 
 export interface ToolWorkspaceProps {
   tool: ToolDefinition;
@@ -26,6 +27,9 @@ export interface ToolWorkspaceProps {
 export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({ tool }) => {
   if (tool.slug === 'word-to-pdf' || tool.id === 'word-to-pdf') {
     return <WordToPdfWorkspace tool={tool} />;
+  }
+  if (tool.slug === 'excel-to-pdf' || tool.id === 'excel-to-pdf') {
+    return <ExcelToPdfWorkspace tool={tool} />;
   }
   if (tool.slug === 'protect' || tool.id === 'protect-pdf') {
     return <ProtectWorkspace tool={tool} />;

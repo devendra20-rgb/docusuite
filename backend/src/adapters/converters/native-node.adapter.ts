@@ -11,6 +11,7 @@ import { createChildLogger } from '../../utils/logger.js';
 import { pdfTableExtractor } from './pdf-table-extractor.service.js';
 import { pdfToWordConverter } from './pdf-to-word.service.js';
 import { wordToPdfConverter } from './word-to-pdf.service.js';
+import { excelToPdfConverter } from './excel-to-pdf.service.js';
 
 const logger = createChildLogger('NativeNodeAdapter');
 
@@ -27,7 +28,8 @@ export class NativeNodeAdapter implements IConversionEngine {
 
     const pairs: Record<string, string[]> = {
       csv: ['xlsx'],
-      xlsx: ['csv'],
+      xlsx: ['csv', 'pdf'],
+      xls: ['pdf'],
       txt: ['pdf'],
       docx: ['html', 'pdf'],
       doc: ['pdf'],
@@ -46,6 +48,13 @@ export class NativeNodeAdapter implements IConversionEngine {
         'Preserves document typography, headings, tables, embedded images, headers, footers, margins, and page orientation.',
         'Uses native high-fidelity OpenXML layout engine with headless LibreOffice support when available.',
         'Complex third-party macros, ActiveX controls, and embedded OLE objects are omitted.'
+      ];
+    }
+    if ((from === 'xlsx' || from === 'xls') && to === 'pdf') {
+      return [
+        'Converts spreadsheet workbooks into formatted tabular PDF reports with styled headers, alternating row fills, and borders.',
+        'Automatically chooses landscape orientation for wide datasets to prevent horizontal clipping.',
+        'Interactive Excel macros, VBA scripts, and dynamic external links are not executed.'
       ];
     }
     if (from === 'pdf' && to === 'docx') {
@@ -114,6 +123,8 @@ export class NativeNodeAdapter implements IConversionEngine {
         await pdfToWordConverter.convert(inputPath, outputPath, options);
       } else if ((from === 'docx' || from === 'doc') && to === 'pdf') {
         await wordToPdfConverter.convert(inputPath, outputPath, options);
+      } else if ((from === 'xlsx' || from === 'xls') && to === 'pdf') {
+        await excelToPdfConverter.convert(inputPath, outputPath, options);
       } else {
         throw new AppError(`Unsupported native conversion from ${from} to ${to}`, 400);
       }

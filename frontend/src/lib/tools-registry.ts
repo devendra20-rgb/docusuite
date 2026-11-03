@@ -553,7 +553,7 @@ export const ALL_TOOLS: ToolDefinition[] = [
     ],
     minFiles: 1,
     maxFiles: 1,
-    requiresLibreOffice: true
+    requiresLibreOffice: false
   },
   {
     id: 'pdf-to-powerpoint',
