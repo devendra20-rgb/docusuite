@@ -17,10 +17,33 @@ export class LibreOfficeAdapter implements IConversionEngine {
   public readonly name = 'LibreOfficeHeadlessEngine';
   private cachedBinaryPath: string | null = null;
   private hasCheckedAvailability = false;
+  private cachedDockerAvailable: boolean | null = null;
 
   public async isAvailable(): Promise<boolean> {
     const binary = await this.resolveBinaryPath();
-    return binary !== null;
+    if (binary !== null) {
+      return true;
+    }
+    return await this.isDockerAvailable();
+  }
+
+  public async isDockerAvailable(): Promise<boolean> {
+    if (this.cachedDockerAvailable !== null) {
+      return this.cachedDockerAvailable;
+    }
+    try {
+      const dockerImage = process.env.DOCUSUITE_DOCKER_IMAGE || 'docusuite-backend';
+      await execFileAsync('docker', ['run', '--rm', dockerImage, 'soffice', '--version'], {
+        timeout: 10000,
+        windowsHide: true
+      });
+      this.cachedDockerAvailable = true;
+      logger.info('LibreOffice headless engine available via Docker container', { image: dockerImage });
+      return true;
+    } catch {
+      this.cachedDockerAvailable = false;
+      return false;
+    }
   }
 
   public async resolveBinaryPath(): Promise<string | null> {
@@ -122,7 +145,9 @@ export class LibreOfficeAdapter implements IConversionEngine {
     options: Record<string, unknown> = {}
   ): Promise<ConversionResult> {
     const binary = await this.resolveBinaryPath();
-    if (!binary) {
+    const useDocker = !binary && (await this.isDockerAvailable());
+
+    if (!binary && !useDocker) {
       throw new AppError(
         'LibreOffice conversion engine is not installed or available on this host. For full Office format conversions, deploy with the provided Docker container.',
         503
@@ -133,52 +158,83 @@ export class LibreOfficeAdapter implements IConversionEngine {
     const from = fromExt.toLowerCase().replace('.', '');
     const to = toExt.toLowerCase().replace('.', '');
 
-    // Isolated temp profile per conversion to prevent concurrent worker lock conflicts
-    const tempProfileDir = path.join(os.tmpdir(), `soffice-profile-${uuidv4()}`);
     const outDir = path.dirname(outputPath);
+    const inDir = path.dirname(inputPath);
+    const inputFilename = path.basename(inputPath);
+
+    let convertArg = to;
+    const extraArgs: string[] = [];
+
+    if (from === 'pdf') {
+      if (to === 'docx') {
+        convertArg = 'docx:MS Word 2007 XML';
+        extraArgs.push('--infilter=writer_pdf_import');
+      } else if (to === 'pptx') {
+        convertArg = 'pptx:Impress MS PowerPoint 2007 XML';
+      } else if (to === 'html') {
+        convertArg = 'html:HTML (StarWriter)';
+        extraArgs.push('--infilter=writer_pdf_import');
+      }
+    }
+
+    // Isolated temp profile per conversion if running host binary
+    const tempProfileDir = path.join(os.tmpdir(), `soffice-profile-${uuidv4()}`);
 
     try {
-      await fs.mkdir(tempProfileDir, { recursive: true });
+      if (useDocker) {
+        const dockerImage = process.env.DOCUSUITE_DOCKER_IMAGE || 'docusuite-backend';
+        const dockerArgs = [
+          'run',
+          '--rm',
+          '-v', `${path.resolve(inDir)}:/inputs`,
+          '-v', `${path.resolve(outDir)}:/outputs`,
+          dockerImage,
+          'soffice',
+          '--headless',
+          '--invisible',
+          '--nodefault',
+          '--nofirststartwizard',
+          '--nolockcheck',
+          '--nologo',
+          ...extraArgs,
+          '--convert-to', convertArg,
+          `/inputs/${inputFilename}`,
+          '--outdir', '/outputs'
+        ];
 
-      const profileUri = `file:///${tempProfileDir.replace(/\\/g, '/')}`;
+        logger.info('Executing LibreOffice conversion via Docker', { image: dockerImage, from, to, inputPath, outDir });
 
-      let convertArg = to;
-      const extraArgs: string[] = [];
+        await execFileAsync('docker', dockerArgs, {
+          timeout: config.CONVERSION_TIMEOUT_MS,
+          windowsHide: true
+        });
+      } else {
+        await fs.mkdir(tempProfileDir, { recursive: true });
+        const profileUri = `file:///${tempProfileDir.replace(/\\/g, '/')}`;
 
-      if (from === 'pdf') {
-        if (to === 'docx') {
-          convertArg = 'docx:MS Word 2007 XML';
-          extraArgs.push('--infilter=writer_pdf_import');
-        } else if (to === 'pptx') {
-          convertArg = 'pptx:Impress MS PowerPoint 2007 XML';
-        } else if (to === 'html') {
-          convertArg = 'html:HTML (StarWriter)';
-          extraArgs.push('--infilter=writer_pdf_import');
-        }
+        const args = [
+          `--headless`,
+          `--invisible`,
+          `--nodefault`,
+          `--nofirststartwizard`,
+          `--nolockcheck`,
+          `--nologo`,
+          `-env:UserInstallation=${profileUri}`,
+          ...extraArgs,
+          `--convert-to`,
+          convertArg,
+          `--outdir`,
+          outDir,
+          inputPath
+        ];
+
+        logger.info('Executing LibreOffice conversion via Host Binary', { binary, from, to, inputPath, outDir });
+
+        await execFileAsync(binary!, args, {
+          timeout: config.CONVERSION_TIMEOUT_MS,
+          windowsHide: true
+        });
       }
-
-      const args = [
-        `--headless`,
-        `--invisible`,
-        `--nodefault`,
-        `--nofirststartwizard`,
-        `--nolockcheck`,
-        `--nologo`,
-        `-env:UserInstallation=${profileUri}`,
-        ...extraArgs,
-        `--convert-to`,
-        convertArg,
-        `--outdir`,
-        outDir,
-        inputPath
-      ];
-
-      logger.info('Executing LibreOffice conversion', { binary, from, to, inputPath, outDir });
-
-      await execFileAsync(binary, args, {
-        timeout: config.CONVERSION_TIMEOUT_MS,
-        windowsHide: true
-      });
 
       // LibreOffice generates output file named after the input file with the new extension
       const inputBasename = path.basename(inputPath, path.extname(inputPath));

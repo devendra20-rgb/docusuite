@@ -30,10 +30,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${plusJakarta.variable} ${inter.variable}`}>
-      <body className="min-h-screen flex flex-col bg-white text-slate-900 font-sans antialiased selection:bg-rose-100 selection:text-rose-900">
+    <html lang="en" className={`${plusJakarta.variable} ${inter.variable}`} suppressHydrationWarning>
+      <body className="min-h-screen flex flex-col bg-white text-slate-900 font-sans antialiased selection:bg-rose-100 selection:text-rose-900" suppressHydrationWarning>
         <Navbar />
-        <main className="flex-1">{children}</main>
+        <main className="flex-1" suppressHydrationWarning>{children}</main>
         <Footer />
       </body>
     </html>

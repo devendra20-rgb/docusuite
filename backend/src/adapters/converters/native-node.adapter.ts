@@ -13,6 +13,7 @@ import { pdfToWordConverter } from './pdf-to-word.service.js';
 import { wordToPdfConverter } from './word-to-pdf.service.js';
 import { excelToPdfConverter } from './excel-to-pdf.service.js';
 import { pdfToPowerPointConverter } from './pdf-to-powerpoint.service.js';
+import { pdfToHtmlConverter } from './pdf-to-html.service.js';
 
 const logger = createChildLogger('NativeNodeAdapter');
 
@@ -34,7 +35,7 @@ export class NativeNodeAdapter implements IConversionEngine {
       txt: ['pdf'],
       docx: ['html', 'pdf'],
       doc: ['pdf'],
-      pdf: ['xlsx', 'docx', 'pptx']
+      pdf: ['xlsx', 'docx', 'pptx', 'html']
     };
 
     return pairs[from]?.includes(to) || false;
@@ -131,6 +132,8 @@ export class NativeNodeAdapter implements IConversionEngine {
         await pdfToWordConverter.convert(inputPath, outputPath, options);
       } else if (from === 'pdf' && to === 'pptx') {
         await pdfToPowerPointConverter.convert(inputPath, outputPath, options);
+      } else if (from === 'pdf' && to === 'html') {
+        await pdfToHtmlConverter.convert(inputPath, outputPath, options);
       } else if ((from === 'docx' || from === 'doc') && to === 'pdf') {
         await wordToPdfConverter.convert(inputPath, outputPath, options);
       } else if ((from === 'xlsx' || from === 'xls') && to === 'pdf') {
