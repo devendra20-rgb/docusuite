@@ -162,6 +162,9 @@ export class LocalStorageService implements IStorageService {
       const entries = await fs.readdir(dir, { withFileTypes: true });
       for (const entry of entries) {
         if (entry.isFile()) {
+          if (entry.name === '.gitkeep') {
+            continue;
+          }
           const fullPath = path.join(dir, entry.name);
           const stats = await fs.stat(fullPath);
           if (now - stats.mtimeMs > maxAgeMs) {

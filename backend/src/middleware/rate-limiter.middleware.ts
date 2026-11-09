@@ -14,10 +14,10 @@ export const standardRateLimiter = rateLimit({
 
 export const guestProcessingLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24 hours
-  max: config.GUEST_DAILY_JOB_LIMIT,
+  max: config.GUEST_DAILY_JOB_LIMIT > 0 ? config.GUEST_DAILY_JOB_LIMIT : 0,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => !req.isGuest, // Only apply to guest requests
+  skip: (req) => !req.isGuest || config.GUEST_DAILY_JOB_LIMIT <= 0, // Skip registered users or when guest limit is disabled (<= 0)
   handler: (_req, _res, next) => {
     next(
       new RateLimitExceededError(

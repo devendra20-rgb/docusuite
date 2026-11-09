@@ -35,7 +35,7 @@ const envSchema = z.object({
 
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900000),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().default(100),
-  GUEST_DAILY_JOB_LIMIT: z.coerce.number().default(20),
+  GUEST_DAILY_JOB_LIMIT: z.coerce.number().default(0),
 
   SOFFICE_PATH: z.string().optional().default(''),
   QPDF_PATH: z.string().optional().default(''),

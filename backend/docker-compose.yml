@@ -23,7 +23,7 @@ services:
       - FILE_RETENTION_HOURS=24
       - RATE_LIMIT_WINDOW_MS=900000
       - RATE_LIMIT_MAX_REQUESTS=100
-      - GUEST_DAILY_JOB_LIMIT=20
+      - GUEST_DAILY_JOB_LIMIT=0
       - SOFFICE_PATH=/usr/bin/soffice
       - QPDF_PATH=/usr/bin/qpdf
       - GS_PATH=/usr/bin/gs
