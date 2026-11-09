@@ -16,6 +16,7 @@ frontend/build/
 frontend/tsconfig.tsbuildinfo
 
 # Storage Directories & Ephemeral User Data (Zero-Retention)
+/storage/
 backend/storage/temp/*
 backend/storage/outputs/*
 !backend/storage/temp/.gitkeep

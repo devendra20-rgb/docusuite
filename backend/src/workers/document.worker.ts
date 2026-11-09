@@ -96,7 +96,9 @@ export const processDocumentJob = async (job: Job<DocumentJobData>): Promise<voi
       } else {
         // Zip archive for multiple split pages
         const zipName = `split-pages-${jobId.substring(0, 8)}.zip`;
-        const zipPath = path.join(storageService['outputDir'], `${jobId}-${zipName}`);
+        const localScratchDir = storageService.getTempDir();
+        await fs.mkdir(localScratchDir, { recursive: true });
+        const zipPath = path.join(localScratchDir, `${jobId}-${zipName}`);
         const output = fsSync.createWriteStream(zipPath);
         const archive = archiver('zip', { zlib: { level: 9 } });
 
@@ -111,14 +113,20 @@ export const processDocumentJob = async (job: Job<DocumentJobData>): Promise<voi
           output.on('error', reject);
         });
 
-        const stats = await fs.stat(zipPath);
+        const zipBuffer = await fs.readFile(zipPath);
+        const saved = await storageService.saveOutputFile(zipName, zipBuffer, 'application/zip');
+        await fs.unlink(zipPath).catch(() => {});
+
         outputFiles.push({
-          fileId: jobId,
-          filename: `${jobId}-${zipName}`,
+          fileId: saved.fileId,
+          filename: saved.filename,
           originalName: zipName,
           mimeType: 'application/zip',
-          size: stats.size,
-          path: zipPath,
+          size: saved.size,
+          path: saved.storedPath,
+          provider: saved.provider,
+          s3Key: saved.s3Key,
+          s3Bucket: saved.s3Bucket,
           downloadUrl: `/api/jobs/${jobId}/download`
         });
       }
@@ -460,27 +468,56 @@ export const processDocumentJob = async (job: Job<DocumentJobData>): Promise<voi
 
       const baseName = path.basename(input.originalName, path.extname(input.originalName));
       const targetFilename = `${baseName}.${toExt}`;
-      const outputPath = path.join(storageService['outputDir'], `${jobId}-${targetFilename}`);
 
-      await job.updateProgress(40);
-      const result = await conversionRouter.routeConversion(
-        input.path,
-        outputPath,
-        fromExt,
-        toExt,
-        parameters
-      );
-      await job.updateProgress(85);
+      const localScratchDir = storageService.getTempDir();
+      await fs.mkdir(localScratchDir, { recursive: true });
 
-      outputFiles.push({
-        fileId: jobId,
-        filename: `${jobId}-${targetFilename}`,
-        originalName: targetFilename,
-        mimeType: result.outputMime,
-        size: result.fileSize,
-        path: result.outputPath,
-        downloadUrl: `/api/jobs/${jobId}/download`
-      });
+      let localInputPath: string;
+      let isLocalInputTemp = false;
+
+      if (fsSync.existsSync(input.path)) {
+        localInputPath = input.path;
+      } else {
+        const inputBuffer = await storageService.getFileBuffer(input.path);
+        localInputPath = path.join(localScratchDir, `worker-in-${jobId}-${path.basename(input.originalName)}`);
+        await fs.writeFile(localInputPath, inputBuffer);
+        isLocalInputTemp = true;
+      }
+
+      const localOutputPath = path.join(localScratchDir, `worker-out-${jobId}-${targetFilename}`);
+
+      try {
+        await job.updateProgress(40);
+        const result = await conversionRouter.routeConversion(
+          localInputPath,
+          localOutputPath,
+          fromExt,
+          toExt,
+          parameters
+        );
+        await job.updateProgress(85);
+
+        const outputBuffer = await fs.readFile(result.outputPath);
+        const saved = await storageService.saveOutputFile(targetFilename, outputBuffer, result.outputMime);
+
+        outputFiles.push({
+          fileId: saved.fileId,
+          filename: saved.filename,
+          originalName: targetFilename,
+          mimeType: result.outputMime,
+          size: saved.size,
+          path: saved.storedPath,
+          provider: saved.provider,
+          s3Key: saved.s3Key,
+          s3Bucket: saved.s3Bucket,
+          downloadUrl: `/api/jobs/${jobId}/download`
+        });
+      } finally {
+        if (isLocalInputTemp) {
+          await fs.unlink(localInputPath).catch(() => {});
+        }
+        await fs.unlink(localOutputPath).catch(() => {});
+      }
     } else {
       throw new AppError(`Unknown operation: ${operation}`, 400);
     }

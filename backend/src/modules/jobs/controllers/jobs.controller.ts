@@ -56,7 +56,8 @@ export class JobsController {
         if (found) targetFile = found;
       }
 
-      if (!fsSync.existsSync(targetFile.path)) {
+      const fileExists = await storageService.fileExists(targetFile.path);
+      if (!fileExists) {
         throw new NotFoundError('Output file has expired or was removed from storage');
       }
 
@@ -75,8 +76,8 @@ export class JobsController {
         res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       }
 
-      const fileStream = storageService.getFileStream(targetFile.path);
-      fileStream.pipe(res);
+      const fileStream = await storageService.getFileStream(targetFile.path);
+      (fileStream as any).pipe(res);
     } catch (err) {
       next(err);
     }

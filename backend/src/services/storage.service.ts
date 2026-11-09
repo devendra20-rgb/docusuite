@@ -5,40 +5,32 @@ import { v4 as uuidv4 } from 'uuid';
 import { config } from '../config/index.js';
 import { AppError } from '../utils/errors.js';
 import { createChildLogger } from '../utils/logger.js';
+import { IStorageService, StoredFileMetadata } from './storage.interface.js';
+import { S3StorageService } from './s3-storage.service.js';
 
 const logger = createChildLogger('StorageService');
 
-export interface StoredFileMetadata {
-  fileId: string;
-  originalName: string;
-  filename: string;
-  storedPath: string;
-  mimeType: string;
-  size: number;
-  createdAt: Date;
-  expiresAt: Date;
-}
-
-export interface IStorageService {
-  saveTempFile(originalName: string, buffer: Buffer, mimeType: string): Promise<StoredFileMetadata>;
-  saveOutputFile(filename: string, buffer: Buffer, mimeType: string): Promise<StoredFileMetadata>;
-  getFileBuffer(filePath: string): Promise<Buffer>;
-  getFileStream(filePath: string): fsSync.ReadStream;
-  deleteFile(filePath: string): Promise<void>;
-  fileExists(filePath: string): Promise<boolean>;
-  cleanupExpiredFiles(): Promise<number>;
-  ensureDirectories(): Promise<void>;
-}
+export * from './storage.interface.js';
+export { S3StorageService } from './s3-storage.service.js';
 
 export class LocalStorageService implements IStorageService {
-  private tempDir: string;
-  private outputDir: string;
+  public readonly provider = 'local' as const;
+  public readonly tempDir: string;
+  public readonly outputDir: string;
   private rootDir: string;
 
   constructor() {
     this.tempDir = config.TEMP_DIR_ABSOLUTE;
     this.outputDir = config.OUTPUT_DIR_ABSOLUTE;
     this.rootDir = config.STORAGE_ROOT_ABSOLUTE;
+  }
+
+  public getTempDir(): string {
+    return this.tempDir;
+  }
+
+  public getOutputDir(): string {
+    return this.outputDir;
   }
 
   public async ensureDirectories(): Promise<void> {
@@ -86,7 +78,8 @@ export class LocalStorageService implements IStorageService {
       mimeType,
       size: buffer.length,
       createdAt: now,
-      expiresAt
+      expiresAt,
+      provider: 'local'
     };
   }
 
@@ -111,7 +104,8 @@ export class LocalStorageService implements IStorageService {
       mimeType,
       size: buffer.length,
       createdAt: now,
-      expiresAt
+      expiresAt,
+      provider: 'local'
     };
   }
 
@@ -123,7 +117,7 @@ export class LocalStorageService implements IStorageService {
     return fs.readFile(safePath);
   }
 
-  public getFileStream(filePath: string): fsSync.ReadStream {
+  public async getFileStream(filePath: string): Promise<NodeJS.ReadableStream> {
     const safePath = this.validatePath(filePath);
     if (!fsSync.existsSync(safePath)) {
       throw new AppError('File not found on storage', 404);
@@ -183,4 +177,24 @@ export class LocalStorageService implements IStorageService {
   }
 }
 
-export const storageService = new LocalStorageService();
+/**
+ * Storage factory initializing the selected provider.
+ * Falls back to LocalStorageService if S3 bucket is unconfigured or if STORAGE_DRIVER=local.
+ */
+export function createStorageService(driver?: 'local' | 's3'): IStorageService {
+  const selectedDriver = driver || config.STORAGE_DRIVER;
+
+  if (selectedDriver === 's3') {
+    if (!config.AWS_S3_BUCKET) {
+      logger.warn(
+        'STORAGE_DRIVER is set to "s3", but AWS_S3_BUCKET is not set. Falling back to LocalStorageService.'
+      );
+      return new LocalStorageService();
+    }
+    return new S3StorageService();
+  }
+
+  return new LocalStorageService();
+}
+
+export const storageService = createStorageService();

@@ -32,7 +32,10 @@ export class PdfToolsController {
       originalName: f.originalName,
       mimeType: f.mimeType,
       size: f.size,
-      path: f.storedPath
+      path: f.storedPath,
+      provider: f.provider,
+      s3Key: f.s3Key,
+      s3Bucket: f.s3Bucket
     }));
 
     const effectiveParameters: Record<string, unknown> = {

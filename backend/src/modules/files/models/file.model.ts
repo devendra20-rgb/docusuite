@@ -11,6 +11,9 @@ export interface IFile extends Document {
   mimeType: string;
   size: number;
   pageCount?: number;
+  provider?: string;
+  s3Key?: string;
+  s3Bucket?: string;
   createdAt: Date;
   expiresAt: Date;
 }
@@ -57,6 +60,16 @@ const fileSchema = new Schema<IFile>(
     },
     pageCount: {
       type: Number
+    },
+    provider: {
+      type: String,
+      default: 'local'
+    },
+    s3Key: {
+      type: String
+    },
+    s3Bucket: {
+      type: String
     },
     expiresAt: {
       type: Date,

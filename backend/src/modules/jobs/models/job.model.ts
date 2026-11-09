@@ -8,6 +8,9 @@ export interface IJobInputFile {
   mimeType: string;
   size: number;
   path: string;
+  provider?: string;
+  s3Key?: string;
+  s3Bucket?: string;
 }
 
 export interface IJobOutputFile {
@@ -18,6 +21,9 @@ export interface IJobOutputFile {
   size: number;
   path: string;
   downloadUrl: string;
+  provider?: string;
+  s3Key?: string;
+  s3Bucket?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -86,7 +92,10 @@ const jobSchema = new Schema<IJob>(
         originalName: String,
         mimeType: String,
         size: Number,
-        path: String
+        path: String,
+        provider: String,
+        s3Key: String,
+        s3Bucket: String
       }
     ],
     outputFiles: [
@@ -98,6 +107,9 @@ const jobSchema = new Schema<IJob>(
         size: Number,
         path: String,
         downloadUrl: String,
+        provider: String,
+        s3Key: String,
+        s3Bucket: String,
         metadata: {
           type: Schema.Types.Mixed,
           default: {}

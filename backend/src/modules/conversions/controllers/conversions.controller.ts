@@ -28,7 +28,10 @@ export class ConversionsController {
       originalName: f.originalName,
       mimeType: f.mimeType,
       size: f.size,
-      path: f.storedPath
+      path: f.storedPath,
+      provider: f.provider,
+      s3Key: f.s3Key,
+      s3Bucket: f.s3Bucket
     }));
 
     const parameters = { targetFormat, ...req.body };
@@ -271,36 +274,67 @@ export class ConversionsController {
         const fromExt = path.extname(file.originalName).replace('.', '');
         const baseName = path.basename(file.originalName, path.extname(file.originalName));
         const outName = `${baseName}.${targetFormat}`;
-        const outputPath = path.join(storageService['outputDir'], `${file.fileId}-${outName}`);
 
-        const conversion = await conversionRouter.routeConversion(
-          file.storedPath,
-          outputPath,
-          fromExt,
-          targetFormat
-        );
+        let localInputPath = file.storedPath;
+        let isLocalInputTemp = false;
 
-        results.push({
-          fileId: file.fileId,
-          originalName: file.originalName,
-          convertedName: outName,
-          filename: outName,
-          mimeType: conversion.outputMime,
-          size: conversion.fileSize,
-          engineUsed: conversion.engineUsed,
-          limitations: conversion.limitations,
-          downloadUrl: `/api/jobs/${job.jobId}/download/${file.fileId}`
-        });
+        if (!fsSync.existsSync(file.storedPath)) {
+          const inputBuffer = await storageService.getFileBuffer(file.storedPath);
+          localInputPath = path.join(storageService.getTempDir(), `worker-in-${file.fileId}-${path.basename(file.originalName)}`);
+          await fs.writeFile(localInputPath, inputBuffer);
+          isLocalInputTemp = true;
+        }
 
-        outputFiles.push({
-          fileId: file.fileId,
-          originalName: outName,
-          filename: outName,
-          mimeType: conversion.outputMime,
-          size: conversion.fileSize,
-          path: outputPath,
-          downloadUrl: `/api/jobs/${job.jobId}/download/${file.fileId}`
-        });
+        const localOutputPath = path.join(storageService.getOutputDir(), `${file.fileId}-${outName}`);
+
+        try {
+          const conversion = await conversionRouter.routeConversion(
+            localInputPath,
+            localOutputPath,
+            fromExt,
+            targetFormat
+          );
+
+          let finalPath = localOutputPath;
+          let finalProvider: string = storageService.provider;
+          let finalS3Key: string | undefined;
+
+          if (storageService.provider === 's3') {
+            const outBuf = await fs.readFile(localOutputPath);
+            const saved = await storageService.saveOutputFile(outName, outBuf, conversion.outputMime);
+            finalPath = saved.storedPath;
+            finalS3Key = saved.s3Key;
+            await fs.unlink(localOutputPath).catch(() => {});
+          }
+
+          results.push({
+            fileId: file.fileId,
+            originalName: file.originalName,
+            convertedName: outName,
+            filename: outName,
+            mimeType: conversion.outputMime,
+            size: conversion.fileSize,
+            engineUsed: conversion.engineUsed,
+            limitations: conversion.limitations,
+            downloadUrl: `/api/jobs/${job.jobId}/download/${file.fileId}`
+          });
+
+          outputFiles.push({
+            fileId: file.fileId,
+            originalName: outName,
+            filename: outName,
+            mimeType: conversion.outputMime,
+            size: conversion.fileSize,
+            path: finalPath,
+            provider: finalProvider,
+            s3Key: finalS3Key,
+            downloadUrl: `/api/jobs/${job.jobId}/download/${file.fileId}`
+          });
+        } finally {
+          if (isLocalInputTemp) {
+            await fs.unlink(localInputPath).catch(() => {});
+          }
+        }
       }
 
       await jobService.markJobCompleted(job.jobId as string, outputFiles);

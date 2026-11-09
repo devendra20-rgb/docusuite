@@ -28,6 +28,15 @@ const envSchema = z.object({
   FILE_RETENTION_HOURS: z.coerce.number().default(24),
   CLEANUP_CRON_SCHEDULE: z.string().default('0 * * * *'),
 
+  // AWS S3 Storage
+  AWS_REGION: z.string().default('us-east-1'),
+  AWS_ACCESS_KEY_ID: z.string().optional().default(''),
+  AWS_SECRET_ACCESS_KEY: z.string().optional().default(''),
+  AWS_S3_BUCKET: z.string().optional().default(''),
+  AWS_S3_PREFIX: z.string().default('docusuite/'),
+  AWS_S3_ENDPOINT: z.string().optional().default(''),
+  AWS_S3_FORCE_PATH_STYLE: z.coerce.boolean().default(false),
+
   MAX_FILE_SIZE_BYTES: z.coerce.number().default(52428800), // 50MB
   MAX_FILES_PER_REQUEST: z.coerce.number().default(10),
   MAX_PAGES_PER_DOCUMENT: z.coerce.number().default(500),
@@ -49,11 +58,15 @@ if (!parsedEnv.success) {
   throw new Error('Invalid environment configuration');
 }
 
+const rawPrefix = (parsedEnv.data.AWS_S3_PREFIX || 'docusuite/').trim().replace(/^\/+/, '');
+const normalizedPrefix = rawPrefix.length > 0 ? (rawPrefix.endsWith('/') ? rawPrefix : `${rawPrefix}/`) : '';
+
 export const config = {
   ...parsedEnv.data,
   TEMP_DIR_ABSOLUTE: path.resolve(parsedEnv.data.TEMP_DIR),
   OUTPUT_DIR_ABSOLUTE: path.resolve(parsedEnv.data.OUTPUT_DIR),
-  STORAGE_ROOT_ABSOLUTE: path.resolve(parsedEnv.data.STORAGE_LOCAL_ROOT)
+  STORAGE_ROOT_ABSOLUTE: path.resolve(parsedEnv.data.STORAGE_LOCAL_ROOT),
+  AWS_S3_PREFIX_NORMALIZED: normalizedPrefix
 };
 
 export type Config = typeof config;
